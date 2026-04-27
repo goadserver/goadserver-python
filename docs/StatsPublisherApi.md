@@ -1,6 +1,6 @@
 # goadserver.StatsPublisherApi
 
-All URIs are relative to *https://up.goadserver.com*
+All URIs are relative to *https://up.go-adserver.com*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------
@@ -33,10 +33,10 @@ from goadserver.models.stats_response import StatsResponse
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters

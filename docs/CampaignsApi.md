@@ -1,6 +1,6 @@
 # goadserver.CampaignsApi
 
-All URIs are relative to *https://up.goadserver.com*
+All URIs are relative to *https://up.go-adserver.com*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------
@@ -66,10 +66,10 @@ from goadserver.models.api_v1_campaigns_get200_response import ApiV1CampaignsGet
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -160,10 +160,10 @@ from goadserver.models.api_v1_campaigns_ron_campaign_id_ads_ad_id_zone_bids_get2
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -251,10 +251,10 @@ from goadserver.models.api_v1_campaigns_ron_campaign_id_ads_ad_id_zone_bids_put_
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -338,10 +338,10 @@ from goadserver.models.api_v1_campaigns_ron_campaign_id_ads_ad_id_zone_bids_zone
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -426,10 +426,10 @@ from goadserver.models.api_v1_campaigns_type_id_active_patch_request import ApiV
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -517,10 +517,10 @@ from goadserver.models.api_v1_campaigns_type_campaign_id_ads_ad_id_bid_patch_req
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -607,10 +607,10 @@ from goadserver.models.api_v1_campaigns_type_campaign_id_ads_ad_id_clone_post200
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -689,10 +689,10 @@ import goadserver
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -767,10 +767,10 @@ import goadserver
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -850,10 +850,10 @@ from goadserver.models.api_v1_campaigns_type_campaign_id_ads_ad_id_put_request i
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -938,10 +938,10 @@ from goadserver.models.api_v1_campaigns_type_campaign_id_ads_get200_response imp
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -1039,10 +1039,10 @@ from goadserver.models.api_v1_campaigns_type_campaign_id_ads_post_request import
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -1129,10 +1129,10 @@ import goadserver
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -1214,10 +1214,10 @@ from goadserver.models.api_v1_campaigns_type_id_active_patch_request import ApiV
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -1313,10 +1313,10 @@ from goadserver.models.api_v1_campaigns_type_id_bids_patch_request import ApiV1C
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -1411,10 +1411,10 @@ from goadserver.models.api_v1_campaigns_type_id_clone_post_request import ApiV1C
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -1500,10 +1500,10 @@ from goadserver.models.api_v1_campaigns_type_id_delete200_response import ApiV1C
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -1586,10 +1586,10 @@ import goadserver
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -1672,10 +1672,10 @@ from goadserver.models.api_v1_campaigns_type_id_filters_get200_response import A
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -1759,10 +1759,10 @@ from goadserver.models.api_v1_campaigns_type_id_filters_post_request import ApiV
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -1839,10 +1839,10 @@ import goadserver
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -1926,10 +1926,10 @@ from goadserver.models.api_v1_campaigns_type_id_min_bid_get200_response import A
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -2025,10 +2025,10 @@ from goadserver.models.api_v1_campaigns_type_post_request import ApiV1CampaignsT
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -2122,10 +2122,10 @@ from goadserver.models.api_v1_campaigns_type_schema_ads_get200_response import A
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -2208,10 +2208,10 @@ from goadserver.models.api_v1_campaigns_type_schema_get200_response import ApiV1
 from goadserver.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://up.goadserver.com
+# Defining the host is optional and defaults to https://up.go-adserver.com
 # See configuration.py for a list of all supported configuration parameters.
 configuration = goadserver.Configuration(
-    host = "https://up.goadserver.com"
+    host = "https://up.go-adserver.com"
 )
 
 # The client must configure the authentication and authorization parameters
