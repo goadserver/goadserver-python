@@ -33,13 +33,6 @@ class TestAdspacesApi(unittest.TestCase):
         """
         pass
 
-    def test_api_v1_adspaces_id_active_patch(self) -> None:
-        """Test case for api_v1_adspaces_id_active_patch
-
-        Activate or deactivate an adspace.
-        """
-        pass
-
     def test_api_v1_adspaces_id_get(self) -> None:
         """Test case for api_v1_adspaces_id_get
 
