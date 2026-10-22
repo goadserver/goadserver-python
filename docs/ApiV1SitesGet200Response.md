@@ -6,6 +6,8 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **data** | [**List[ApiV1SitesGet200ResponseDataInner]**](ApiV1SitesGet200ResponseDataInner.md) |  | [optional] 
+**page** | **int** |  | [optional] 
+**per_page** | **int** |  | [optional] 
 **total_rows** | **int** |  | [optional] 
 
 ## Example

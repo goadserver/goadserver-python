@@ -9,6 +9,13 @@ Name | Type | Description | Notes
 **name** | **str** |  | [optional] 
 **url** | **str** |  | [optional] 
 **is_deleted** | **bool** |  | [optional] 
+**sitestate** | **int** |  | [optional] 
+**sitestate_name** | **str** |  | [optional] 
+**is_verified** | **bool** |  | [optional] 
+**typeid** | **int** |  | [optional] 
+**main_catid** | **int** |  | [optional] 
+**tags** | **List[int]** |  | [optional] 
+**date_added** | **str** |  | [optional] 
 
 ## Example
 

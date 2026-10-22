@@ -7,9 +7,18 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **int** |  | [optional] 
 **name** | **str** |  | [optional] 
-**site** | [**ApiV1AdspacesGet200ResponseDataInnerSite**](ApiV1AdspacesGet200ResponseDataInnerSite.md) |  | [optional] 
-**ad_type** | **int** |  | [optional] 
-**is_active** | **bool** |  | [optional] 
+**site** | [**ApiV1TrackingConversionTypesPut200ResponseConversionTypesInner**](ApiV1TrackingConversionTypesPut200ResponseConversionTypesInner.md) |  | [optional] 
+**siteid** | **int** |  | [optional] 
+**adspace_type** | **str** | Type config key (e.g. bannerads). Empty when the underlying type is no longer in the tenant config. | [optional] 
+**adzone_typeid** | **int** |  | [optional] 
+**adtype_id** | **int** |  | [optional] 
+**ad_type** | **int** | Backward-compat alias for adtype_id. | [optional] 
+**adsizeid** | **int** |  | [optional] 
+**is_active** | **bool** | Derived from publisher_adzones.isinuse. | [optional] 
+**date_added** | **datetime** |  | [optional] 
+**time_changed** | **int** | Unix seconds of last update. | [optional] 
+**is_deleted** | **bool** |  | [optional] 
+**parentid** | **int** |  | [optional] 
 
 ## Example
 

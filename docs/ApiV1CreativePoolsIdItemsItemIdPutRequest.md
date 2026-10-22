@@ -10,6 +10,10 @@ Name | Type | Description | Notes
 **properties** | **str** |  | [optional] 
 **ratingid** | **int** |  | [optional] 
 **url_prefix** | **str** |  | [optional] 
+**weight** | **int** |  | [optional] 
+**is_fallback** | **bool** | Serve only while no other item of this pool + size is live. | [optional] 
+**start_at** | [**ApiV1CreativePoolsIdItemsItemIdPutRequestStartAt**](ApiV1CreativePoolsIdItemsItemIdPutRequestStartAt.md) |  | [optional] 
+**end_at** | [**ApiV1CreativePoolsIdItemsItemIdPutRequestEndAt**](ApiV1CreativePoolsIdItemsItemIdPutRequestEndAt.md) |  | [optional] 
 
 ## Example
 

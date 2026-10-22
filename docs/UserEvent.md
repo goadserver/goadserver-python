@@ -1,0 +1,34 @@
+# UserEvent
+
+One event (the feed entry and the webhook body are the same envelope; the feed adds `cursor`). Money is in **cents** — of the network currency for campaign, balance and conversion amounts, of `currency` where an event carries one. 
+
+## Properties
+
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**cursor** | **str** | Feed only. | [optional] 
+**id** | **str** | Unique per event — dedupe on it. | [optional] 
+**type** | **str** |  | [optional] 
+**created_at** | **datetime** |  | [optional] 
+**data** | **Dict[str, object]** | Always &#x60;user_id&#x60;. Per type — &#x60;ad.approved&#x60; / &#x60;ad.rejected&#x60;: &#x60;ad_id&#x60;, &#x60;ad_title&#x60;, &#x60;campaign_id&#x60;, &#x60;campaign_name&#x60;, &#x60;campaign_type&#x60;, &#x60;reviewed_at&#x60;, rejected also &#x60;reason&#x60; (and &#x60;reason_id&#x60;). &#x60;campaign.paused&#x60; / &#x60;campaign.resumed&#x60;: &#x60;campaign_id&#x60;, &#x60;campaign_name&#x60;, &#x60;campaign_type&#x60;, &#x60;reason&#x60; — paused: &#x60;manual&#x60; (you or staff), &#x60;budget_daily&#x60;, &#x60;budget_total&#x60;, &#x60;balance_empty&#x60;, &#x60;schedule&#x60; (dayparting, start/end date or a delivery cap); resumed: &#x60;manual&#x60;, &#x60;new_day&#x60;, &#x60;balance_topped_up&#x60;, &#x60;schedule&#x60;. &#x60;campaign.budget_reached&#x60;: campaign fields + &#x60;budget&#x60; (&#x60;daily&#x60; / &#x60;total&#x60;). &#x60;balance.low&#x60; / &#x60;balance.empty&#x60;: &#x60;balance_cents&#x60;, &#x60;credit_limit_cents&#x60;, &#x60;low_balance_cents&#x60;. &#x60;deposit.completed&#x60;: &#x60;deposit_id&#x60;, &#x60;amount_cents&#x60;, &#x60;currency&#x60;, &#x60;pay_type&#x60;, &#x60;completed_at&#x60; (+ &#x60;bonus_cents&#x60;). &#x60;conversion.summary&#x60;: &#x60;hour_start&#x60;, &#x60;hour_end&#x60;, &#x60;conversions&#x60;, &#x60;cost_cents&#x60;, &#x60;value_cents&#x60;, &#x60;campaigns[]&#x60; (&#x60;campaign_id&#x60;, &#x60;conversions&#x60;, &#x60;cost_cents&#x60;, &#x60;value_cents&#x60;; up to 100). &#x60;conversion.received&#x60;: &#x60;campaign_id&#x60;, &#x60;ad_id&#x60;, &#x60;zone_id&#x60;, &#x60;conv_type&#x60;, &#x60;count&#x60;, &#x60;cost_cents&#x60;, &#x60;value_cents&#x60;, &#x60;click_id&#x60;, &#x60;transaction_id&#x60;, &#x60;event_name&#x60;, &#x60;status&#x60;, &#x60;converted_at&#x60;. &#x60;payout.requested&#x60; / &#x60;payout.paid&#x60;: &#x60;payout_id&#x60;, &#x60;amount_cents&#x60;, &#x60;fee_cents&#x60;, &#x60;currency&#x60;, &#x60;payout_type&#x60; (+ &#x60;paid_on&#x60;). &#x60;site.approved&#x60; / &#x60;site.rejected&#x60;: &#x60;site_id&#x60;, &#x60;site_name&#x60;, &#x60;url&#x60;, &#x60;reviewed_at&#x60; (+ &#x60;reason&#x60;). &#x60;media_buying.report&#x60; (admanager networks; daily or weekly per buying ad zone): &#x60;adzone_id&#x60;, &#x60;period&#x60;, &#x60;from&#x60;, &#x60;to&#x60;, &#x60;currency&#x60;, &#x60;revenue&#x60;, &#x60;cost&#x60;, &#x60;profit&#x60;, &#x60;margin_pct&#x60;, &#x60;visits&#x60;, &#x60;actions&#x60; (count per change type), &#x60;failed&#x60;, &#x60;pending&#x60;, &#x60;losing&#x60; / &#x60;earning&#x60; (top 5 placements: &#x60;zone_id&#x60;, &#x60;cost&#x60;, &#x60;revenue&#x60;, &#x60;margin_pct&#x60;), &#x60;panel_url&#x60;. &#x60;media_buying.alert&#x60; (admanager networks, tracking links; when a buy needs you now): &#x60;adzone_id&#x60;, &#x60;kind&#x60; (&#x60;source_held&#x60; — the stop-loss or spend cap paused the source; &#x60;remoderation&#x60; — a change put the campaign back into the network&#39;s moderation; &#x60;source_stopped&#x60; — 10 failed pause / activate calls; &#x60;test_passed&#x60; / &#x60;test_failed&#x60; / &#x60;test_no_data&#x60; — the verdict of a launch test phase), &#x60;title&#x60;, &#x60;detail&#x60;, &#x60;panel_url&#x60;. &#x60;webhook.test&#x60;: &#x60;webhook_id&#x60;, &#x60;message&#x60;.  | [optional] 
+
+## Example
+
+```python
+from goadserver.models.user_event import UserEvent
+
+# TODO update the JSON string below
+json = "{}"
+# create an instance of UserEvent from a JSON string
+user_event_instance = UserEvent.from_json(json)
+# print the JSON string representation of the object
+print(UserEvent.to_json())
+
+# convert the object into a dict
+user_event_dict = user_event_instance.to_dict()
+# create an instance of UserEvent from a dict
+user_event_from_dict = UserEvent.from_dict(user_event_dict)
+```
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
+
+

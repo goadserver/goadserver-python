@@ -12,6 +12,9 @@ Name | Type | Description | Notes
 **example** | **object** |  | [optional] 
 **enum** | **List[object]** |  | [optional] 
 **description** | **str** |  | [optional] 
+**ad_types** | **List[int]** | The field applies only to these ad types. | [optional] 
+**selling_types** | **List[int]** | The field applies only to these pay types. | [optional] 
+**not_selling_types** | **List[int]** | The field never applies to these pay types (5 &#x3D; flat). | [optional] 
 
 ## Example
 

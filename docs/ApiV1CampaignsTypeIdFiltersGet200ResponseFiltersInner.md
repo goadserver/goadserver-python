@@ -5,8 +5,9 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**filter_type** | **str** |  | [optional] 
+**filter_type** | [**FilterType**](FilterType.md) |  | [optional] 
 **filter_id** | **int** |  | [optional] 
+**applies_to** | **str** | Block lists only. | [optional] 
 
 ## Example
 

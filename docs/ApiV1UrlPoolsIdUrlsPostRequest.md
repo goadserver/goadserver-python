@@ -6,9 +6,13 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **url** | **str** |  | 
-**title** | **str** |  | [optional] 
-**weight** | **int** |  | [optional] [default to 1]
+**title** | **str** | Required — handlers/advertiser/url_pools.go returns 422 NO_TITLE_GIVEN when omitted. | 
+**weight** | **int** | Share under sort_type wr. Omitted &#x3D; 0, which a weighted rotation never picks — send a weight when the pool uses wr. | [optional] [default to 0]
 **properties** | **str** |  | [optional] 
+**keywords** | **str** | Comma-separated targeting keywords; empty &#x3D; a keyword fallback URL (serves when no targeted URL matches). | [optional] 
+**is_fallback** | **bool** | Backup: used only while no other URL of the pool is live (\&quot;Backup\&quot; in the panel). | [optional] 
+**start_at** | [**ApiV1CreativePoolsIdItemsItemIdPutRequestStartAt**](ApiV1CreativePoolsIdItemsItemIdPutRequestStartAt.md) |  | [optional] 
+**end_at** | [**ApiV1CreativePoolsIdItemsItemIdPutRequestEndAt**](ApiV1CreativePoolsIdItemsItemIdPutRequestEndAt.md) |  | [optional] 
 
 ## Example
 

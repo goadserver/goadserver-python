@@ -8,14 +8,11 @@ Method | HTTP request | Description
 
 
 # **api_v1_advertiser_offers_stats_get**
-> StatsResponse api_v1_advertiser_offers_stats_get(var_from=var_from, to=to, interval=interval, group_by=group_by, metrics=metrics, format=format, page=page, per_page=per_page, sort=sort)
+> StatsResponse api_v1_advertiser_offers_stats_get(var_from=var_from, to=to, interval=interval, group_by=group_by, metrics=metrics, filter_offer_id=filter_offer_id, filter_offer_type_id=filter_offer_type_id, filter_device=filter_device, filter_country=filter_country, format=format, page=page, per_page=per_page, sort=sort)
 
 CPA / affiliate offer performance — advertiser side.
 
-**group_by:** `offer`, `country`, `device`, `os`, `browser`.
-
-**Metrics:** `clicks`, `conversions`, `cr`, `cpa`, `cost`,
-`conv_a`, `conv_b`, `conv_c`.
+Performance for the advertiser's CPA / affiliate offers.
 
 
 ### Example
@@ -51,8 +48,12 @@ with goadserver.ApiClient(configuration) as api_client:
     var_from = '2013-10-20' # date | ISO date — inclusive start. Defaults to 7 days ago. (optional)
     to = '2013-10-20' # date | ISO date — inclusive end. Defaults to today. Max range 92 days. (optional)
     interval = sum # str |  (optional) (default to sum)
-    group_by = 'group_by_example' # str | Comma-separated dimensions to aggregate by, in priority order. Max 4 dimensions. Available dimensions vary per endpoint — see the per-endpoint description.  (optional)
-    metrics = 'metrics_example' # str | Optional comma-separated metric whitelist. When omitted, all metrics for the endpoint are returned.  (optional)
+    group_by = ['[\"offer\",\"country\"]'] # List[str] | Dimensions to aggregate by. Multi-pick up to 8. (optional)
+    metrics = ['metrics_example'] # List[str] | Metrics to return. Multi-pick — leave empty for all. (optional)
+    filter_offer_id = 56 # int | Offer ID. Look up via `GET /api/v1/offers`. (optional)
+    filter_offer_type_id = 56 # int | Offer-type ID. (optional)
+    filter_device = 56 # int | Device type:  | ID | Device | |----|--------| | 1  | Computer | | 2  | Tablet | | 3  | Phone | | 4  | Console | | 5  | Wearable | | 6  | TV |  (optional)
+    filter_country = 'US' # str | ISO-3166 alpha-2 country code (e.g. `US`, `DE`, `BR`). (optional)
     format = json # str |  (optional) (default to json)
     page = 1 # int |  (optional) (default to 1)
     per_page = 100 # int |  (optional) (default to 100)
@@ -60,7 +61,7 @@ with goadserver.ApiClient(configuration) as api_client:
 
     try:
         # CPA / affiliate offer performance — advertiser side.
-        api_response = api_instance.api_v1_advertiser_offers_stats_get(var_from=var_from, to=to, interval=interval, group_by=group_by, metrics=metrics, format=format, page=page, per_page=per_page, sort=sort)
+        api_response = api_instance.api_v1_advertiser_offers_stats_get(var_from=var_from, to=to, interval=interval, group_by=group_by, metrics=metrics, filter_offer_id=filter_offer_id, filter_offer_type_id=filter_offer_type_id, filter_device=filter_device, filter_country=filter_country, format=format, page=page, per_page=per_page, sort=sort)
         print("The response of StatsAdvertiserOffersApi->api_v1_advertiser_offers_stats_get:\n")
         pprint(api_response)
     except Exception as e:
@@ -77,8 +78,12 @@ Name | Type | Description  | Notes
  **var_from** | **date**| ISO date — inclusive start. Defaults to 7 days ago. | [optional] 
  **to** | **date**| ISO date — inclusive end. Defaults to today. Max range 92 days. | [optional] 
  **interval** | **str**|  | [optional] [default to sum]
- **group_by** | **str**| Comma-separated dimensions to aggregate by, in priority order. Max 4 dimensions. Available dimensions vary per endpoint — see the per-endpoint description.  | [optional] 
- **metrics** | **str**| Optional comma-separated metric whitelist. When omitted, all metrics for the endpoint are returned.  | [optional] 
+ **group_by** | [**List[str]**](str.md)| Dimensions to aggregate by. Multi-pick up to 8. | [optional] 
+ **metrics** | [**List[str]**](str.md)| Metrics to return. Multi-pick — leave empty for all. | [optional] 
+ **filter_offer_id** | **int**| Offer ID. Look up via &#x60;GET /api/v1/offers&#x60;. | [optional] 
+ **filter_offer_type_id** | **int**| Offer-type ID. | [optional] 
+ **filter_device** | **int**| Device type:  | ID | Device | |----|--------| | 1  | Computer | | 2  | Tablet | | 3  | Phone | | 4  | Console | | 5  | Wearable | | 6  | TV |  | [optional] 
+ **filter_country** | **str**| ISO-3166 alpha-2 country code (e.g. &#x60;US&#x60;, &#x60;DE&#x60;, &#x60;BR&#x60;). | [optional] 
  **format** | **str**|  | [optional] [default to json]
  **page** | **int**|  | [optional] [default to 1]
  **per_page** | **int**|  | [optional] [default to 100]

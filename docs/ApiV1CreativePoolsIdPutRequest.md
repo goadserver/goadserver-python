@@ -6,10 +6,12 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **title** | **str** |  | [optional] 
+**name** | **str** | Alias of title. | [optional] 
 **sort_type** | **str** |  | [optional] 
 **conv_type** | **int** |  | [optional] 
 **tags** | **str** |  | [optional] 
 **type** | **str** |  | [optional] 
+**orientation** | **str** |  | [optional] 
 
 ## Example
 

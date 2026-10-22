@@ -5,11 +5,13 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**type** | **str** |  | 
-**name** | **str** |  | 
-**items** | **List[str]** |  | 
-**campaign_ids** | **List[int]** | Exclusion filters: limits this filter to these campaigns. Empty/omitted &#x3D; applies to all. | [optional] 
-**ad_type** | **int** | 0 &#x3D; all ad types, otherwise the adtypeid this filter applies to. | [optional] [default to 0]
+**type** | [**FilterType**](FilterType.md) |  | 
+**name** | **str** | HTML tags are stripped; unique per type. | 
+**items** | **List[str]** | Required for every type but ip. | [optional] 
+**campaign_ids** | **List[int]** | See Campaign scope above. Empty/omitted &#x3D; no campaign link (block lists: every campaign of ad_type). | [optional] 
+**campaign_type** | **str** | Block lists: the kind of the campaign_ids. Default ron (rtb when ad_type is 14). | [optional] 
+**ad_type** | **int** | Block lists and domain_incl: 0 &#x3D; all ad types / every campaign, otherwise the adtypeid this filter applies to. | [optional] [default to 0]
+**ip_list** | **str** | type&#x3D;ip only: ranges, one per line. | [optional] 
 
 ## Example
 

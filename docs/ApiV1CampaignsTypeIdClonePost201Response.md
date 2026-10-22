@@ -7,7 +7,8 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **int** | The cloned campaign&#39;s id. | [optional] 
 **cloned_from** | **int** | The source campaign&#39;s id. | [optional] 
-**is_active** | **bool** | Always false — the clone lands paused. | [optional] 
+**is_active** | **bool** | false &#x3D; the clone landed paused (the default); true on a network where ron clones start active. | [optional] 
+**copied** | [**ApiV1CampaignsTypeIdClonePost201ResponseCopied**](ApiV1CampaignsTypeIdClonePost201ResponseCopied.md) |  | [optional] 
 
 ## Example
 

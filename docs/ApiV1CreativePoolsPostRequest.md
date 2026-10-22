@@ -7,6 +7,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **title** | **str** |  | 
 **type** | **str** |  | [optional] [default to 'banner']
+**orientation** | **str** | Optional label for orientation-locked slots (e.g. portrait creator ads); &#39;&#39; &#x3D; unspecified. | [optional] 
 **tags** | **str** | CSV of tag ids. | [optional] 
 
 ## Example

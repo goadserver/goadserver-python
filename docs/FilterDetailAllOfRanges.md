@@ -5,8 +5,13 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
+**id** | **int** |  | [optional] 
 **range** | **str** |  | [optional] 
+**ip_start** | **str** |  | [optional] 
+**ip_end** | **str** |  | [optional] 
 **ip_count** | **int** |  | [optional] 
+**is_active** | **bool** |  | [optional] 
+**country** | **str** |  | [optional] 
 
 ## Example
 

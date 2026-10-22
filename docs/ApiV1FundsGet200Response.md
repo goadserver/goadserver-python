@@ -5,13 +5,13 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**currency** | **str** |  | [optional] 
-**balance** | **float** |  | [optional] 
-**pending** | **float** |  | [optional] 
+**currency** | **str** | The account currency, lowercase (eur when unset). | [optional] 
+**balance** | **float** | Currency units. | [optional] 
+**pending** | **float** | Unpaid deposits, currency units. | [optional] 
 **pending_count** | **int** |  | [optional] 
-**min_balance** | **float** |  | [optional] 
+**min_balance** | **float** | Low-balance warning threshold, currency units. | [optional] 
 **low_balance** | **bool** |  | [optional] 
-**last_deposit** | **datetime** |  | [optional] 
+**last_deposit** | **date** | Date of the last paid deposit; omitted when there is none. | [optional] 
 
 ## Example
 

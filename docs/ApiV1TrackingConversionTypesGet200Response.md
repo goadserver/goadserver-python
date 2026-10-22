@@ -5,9 +5,11 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**conversion_types** | **List[object]** |  | [optional] 
+**conversion_types** | [**List[ApiV1TrackingConversionTypesGet200ResponseConversionTypesInner]**](ApiV1TrackingConversionTypesGet200ResponseConversionTypesInner.md) |  | [optional] 
+**skip_dedup** | **List[int]** | Slots whose conversions are NOT deduplicated by click id (e.g. rebills). | [optional] 
 **addomain** | **str** |  | [optional] 
 **tracking_var_name** | **str** |  | [optional] 
+**userid** | **int** | The account id (used in postback URLs). | [optional] 
 
 ## Example
 

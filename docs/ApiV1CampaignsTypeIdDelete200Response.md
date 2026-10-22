@@ -7,6 +7,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **int** |  | [optional] 
 **deleted** | **bool** |  | [optional] 
+**pending_review** | **bool** | true &#x3D; sent to the network for approval instead of deleted (see above). | [optional] 
 
 ## Example
 

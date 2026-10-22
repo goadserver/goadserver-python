@@ -8,7 +8,7 @@ Method | HTTP request | Description
 [**api_v1_retargeting_pixels_id_active_patch**](RetargetingApi.md#api_v1_retargeting_pixels_id_active_patch) | **PATCH** /api/v1/retargeting/pixels/{id}/active | Activate or deactivate a retargeting pixel.
 [**api_v1_retargeting_pixels_id_delete**](RetargetingApi.md#api_v1_retargeting_pixels_id_delete) | **DELETE** /api/v1/retargeting/pixels/{id} | Soft-delete a retargeting pixel and clear its captured visitors.
 [**api_v1_retargeting_pixels_id_get**](RetargetingApi.md#api_v1_retargeting_pixels_id_get) | **GET** /api/v1/retargeting/pixels/{id} | Get one retargeting pixel.
-[**api_v1_retargeting_pixels_id_put**](RetargetingApi.md#api_v1_retargeting_pixels_id_put) | **PUT** /api/v1/retargeting/pixels/{id} | Rename a retargeting pixel.
+[**api_v1_retargeting_pixels_id_put**](RetargetingApi.md#api_v1_retargeting_pixels_id_put) | **PUT** /api/v1/retargeting/pixels/{id} | Update a retargeting pixel (name and visitor windows).
 [**api_v1_retargeting_pixels_post**](RetargetingApi.md#api_v1_retargeting_pixels_post) | **POST** /api/v1/retargeting/pixels | Create a retargeting pixel.
 
 
@@ -16,6 +16,11 @@ Method | HTTP request | Description
 > ApiV1RetargetingPixelsGet200Response api_v1_retargeting_pixels_get()
 
 List the caller's retargeting pixels.
+
+Every live list in one response — not paginated (`total_rows` is the
+count). Requires the tenant's retargeting module
+(`modules.advertiser.retargetting`); 403 when it is off.
+
 
 ### Example
 
@@ -164,13 +169,15 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **api_v1_retargeting_pixels_id_delete**
-> api_v1_retargeting_pixels_id_delete(id)
+> ApiV1RetargetingPixelsIdDelete200Response api_v1_retargeting_pixels_id_delete(id)
 
 Soft-delete a retargeting pixel and clear its captured visitors.
 
 Sets `isdeleted=1` in MySQL and asynchronously deletes the
-pixel's rows from ClickHouse `rt_final`. Captured visitor IDs
-are gone — re-creating with the same name will start fresh.
+pixel's captured visitors (ClickHouse `rt_pixels`, the same cleanup
+the panel runs). Captured visitor IDs are gone — re-creating with the
+same name will start fresh. A campaign still pointing at the list
+(`rt_id` / `rt_exclude_id`) keeps the pointer.
 
 
 ### Example
@@ -179,6 +186,7 @@ are gone — re-creating with the same name will start fresh.
 
 ```python
 import goadserver
+from goadserver.models.api_v1_retargeting_pixels_id_delete200_response import ApiV1RetargetingPixelsIdDelete200Response
 from goadserver.rest import ApiException
 from pprint import pprint
 
@@ -206,7 +214,9 @@ with goadserver.ApiClient(configuration) as api_client:
 
     try:
         # Soft-delete a retargeting pixel and clear its captured visitors.
-        api_instance.api_v1_retargeting_pixels_id_delete(id)
+        api_response = api_instance.api_v1_retargeting_pixels_id_delete(id)
+        print("The response of RetargetingApi->api_v1_retargeting_pixels_id_delete:\n")
+        pprint(api_response)
     except Exception as e:
         print("Exception when calling RetargetingApi->api_v1_retargeting_pixels_id_delete: %s\n" % e)
 ```
@@ -222,7 +232,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-void (empty response body)
+[**ApiV1RetargetingPixelsIdDelete200Response**](ApiV1RetargetingPixelsIdDelete200Response.md)
 
 ### Authorization
 
@@ -231,14 +241,14 @@ void (empty response body)
 ### HTTP request headers
 
  - **Content-Type**: Not defined
- - **Accept**: Not defined
+ - **Accept**: application/json
 
 ### HTTP response details
 
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 **200** | Deleted |  -  |
-**404** | Not found |  -  |
+**404** | Not found (or already deleted) |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
@@ -320,9 +330,14 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **api_v1_retargeting_pixels_id_put**
-> api_v1_retargeting_pixels_id_put(id, api_v1_retargeting_pixels_id_put_request)
+> RetargetingPixel api_v1_retargeting_pixels_id_put(id, retargeting_pixel_write)
 
-Rename a retargeting pixel.
+Update a retargeting pixel (name and visitor windows).
+
+Partial update: fields not sent keep their stored value. At least one
+editable field is required (422 "Nothing to update." otherwise).
+Returns the updated record.
+
 
 ### Example
 
@@ -330,7 +345,8 @@ Rename a retargeting pixel.
 
 ```python
 import goadserver
-from goadserver.models.api_v1_retargeting_pixels_id_put_request import ApiV1RetargetingPixelsIdPutRequest
+from goadserver.models.retargeting_pixel import RetargetingPixel
+from goadserver.models.retargeting_pixel_write import RetargetingPixelWrite
 from goadserver.rest import ApiException
 from pprint import pprint
 
@@ -355,11 +371,13 @@ with goadserver.ApiClient(configuration) as api_client:
     # Create an instance of the API class
     api_instance = goadserver.RetargetingApi(api_client)
     id = 56 # int | 
-    api_v1_retargeting_pixels_id_put_request = goadserver.ApiV1RetargetingPixelsIdPutRequest() # ApiV1RetargetingPixelsIdPutRequest | 
+    retargeting_pixel_write = {"skipvisits":5} # RetargetingPixelWrite | 
 
     try:
-        # Rename a retargeting pixel.
-        api_instance.api_v1_retargeting_pixels_id_put(id, api_v1_retargeting_pixels_id_put_request)
+        # Update a retargeting pixel (name and visitor windows).
+        api_response = api_instance.api_v1_retargeting_pixels_id_put(id, retargeting_pixel_write)
+        print("The response of RetargetingApi->api_v1_retargeting_pixels_id_put:\n")
+        pprint(api_response)
     except Exception as e:
         print("Exception when calling RetargetingApi->api_v1_retargeting_pixels_id_put: %s\n" % e)
 ```
@@ -372,11 +390,11 @@ with goadserver.ApiClient(configuration) as api_client:
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **id** | **int**|  | 
- **api_v1_retargeting_pixels_id_put_request** | [**ApiV1RetargetingPixelsIdPutRequest**](ApiV1RetargetingPixelsIdPutRequest.md)|  | 
+ **retargeting_pixel_write** | [**RetargetingPixelWrite**](RetargetingPixelWrite.md)|  | 
 
 ### Return type
 
-void (empty response body)
+[**RetargetingPixel**](RetargetingPixel.md)
 
 ### Authorization
 
@@ -385,21 +403,26 @@ void (empty response body)
 ### HTTP request headers
 
  - **Content-Type**: application/json
- - **Accept**: Not defined
+ - **Accept**: application/json
 
 ### HTTP response details
 
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
-**200** | Updated |  -  |
+**200** | Updated record |  -  |
 **404** | Not found |  -  |
+**422** | Validation error or nothing to update. |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **api_v1_retargeting_pixels_post**
-> RetargetingPixel api_v1_retargeting_pixels_post(api_v1_retargeting_pixels_post_request)
+> RetargetingPixel api_v1_retargeting_pixels_post(retargeting_pixel_write)
 
 Create a retargeting pixel.
+
+Same write path and validation as the panel. Windows not sent are 0
+(off).
+
 
 ### Example
 
@@ -407,8 +430,8 @@ Create a retargeting pixel.
 
 ```python
 import goadserver
-from goadserver.models.api_v1_retargeting_pixels_post_request import ApiV1RetargetingPixelsPostRequest
 from goadserver.models.retargeting_pixel import RetargetingPixel
+from goadserver.models.retargeting_pixel_write import RetargetingPixelWrite
 from goadserver.rest import ApiException
 from pprint import pprint
 
@@ -432,11 +455,11 @@ configuration = goadserver.Configuration(
 with goadserver.ApiClient(configuration) as api_client:
     # Create an instance of the API class
     api_instance = goadserver.RetargetingApi(api_client)
-    api_v1_retargeting_pixels_post_request = goadserver.ApiV1RetargetingPixelsPostRequest() # ApiV1RetargetingPixelsPostRequest | 
+    retargeting_pixel_write = {"name":"Cart abandoners","rmdays":30,"skiphours":1} # RetargetingPixelWrite | 
 
     try:
         # Create a retargeting pixel.
-        api_response = api_instance.api_v1_retargeting_pixels_post(api_v1_retargeting_pixels_post_request)
+        api_response = api_instance.api_v1_retargeting_pixels_post(retargeting_pixel_write)
         print("The response of RetargetingApi->api_v1_retargeting_pixels_post:\n")
         pprint(api_response)
     except Exception as e:
@@ -450,7 +473,7 @@ with goadserver.ApiClient(configuration) as api_client:
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
- **api_v1_retargeting_pixels_post_request** | [**ApiV1RetargetingPixelsPostRequest**](ApiV1RetargetingPixelsPostRequest.md)|  | 
+ **retargeting_pixel_write** | [**RetargetingPixelWrite**](RetargetingPixelWrite.md)|  | 
 
 ### Return type
 
@@ -470,6 +493,7 @@ Name | Type | Description  | Notes
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 **201** | Created |  -  |
+**422** | Validation error — &#x60;errors&#x60; is keyed by the panel field names (&#x60;name&#x60;, &#x60;rmdays&#x60;, &#x60;skipdays&#x60;, &#x60;skiphours&#x60;, &#x60;skipvisits&#x60;), or an unknown key. |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

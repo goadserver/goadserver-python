@@ -11,6 +11,7 @@ Name | Type | Description | Notes
 **scopes** | **List[str]** |  | [optional] 
 **ip_allowlist** | **str** | CSV of IPs/CIDRs, empty &#x3D; any | [optional] 
 **rate_limit_rpm** | **int** | 0 &#x3D; system default (60) | [optional] 
+**strict_fields** | **bool** | Unknown body fields are a 422 by default for this key (true for keys created from 2026-10-12). ?strict&#x3D;0/1 overrides per request. | [optional] 
 **expires_at** | **datetime** |  | [optional] 
 **last_used_at** | **datetime** |  | [optional] 
 **last_used_ip** | **str** |  | [optional] 

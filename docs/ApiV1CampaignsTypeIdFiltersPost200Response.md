@@ -10,6 +10,8 @@ Name | Type | Description | Notes
 **filter_type** | **str** |  | [optional] 
 **filter_id** | **int** |  | [optional] 
 **attached** | **bool** |  | [optional] 
+**changed** | **bool** | false &#x3D; the filter already covered the campaign; nothing written. | [optional] 
+**applies_to** | **str** | Present when changed is false. | [optional] 
 
 ## Example
 

@@ -6,7 +6,7 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **data** | **List[object]** |  | [optional] 
-**total** | **int** |  | [optional] 
+**meta** | [**ApiV1CampaignsTypeCampaignIdAdsGet200ResponseMeta**](ApiV1CampaignsTypeCampaignIdAdsGet200ResponseMeta.md) |  | [optional] 
 
 ## Example
 

@@ -6,6 +6,10 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **name** | **str** | Override the cloned campaign&#39;s name. Defaults to \&quot;&lt;original&gt; Copy\&quot;. | [optional] 
+**copy_ads** | **bool** |  | [optional] [default to True]
+**copy_targeting** | **bool** |  | [optional] [default to True]
+**copy_budget** | **bool** |  | [optional] [default to True]
+**copy_schedule** | **bool** |  | [optional] [default to True]
 
 ## Example
 

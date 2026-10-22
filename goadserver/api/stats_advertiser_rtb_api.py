@@ -1,7 +1,7 @@
 """
     GoAdServer Public API
 
-    Public REST API for advertisers and publishers on the GoAdServer platform.  **Authentication.** All endpoints (except `/api/public/*`) require an API key passed as `Authorization: Bearer gas_live_…`. Create and manage keys in your account settings — each key has its own scopes, optional resource pinning, optional IP allowlist, and per-key rate limit.  **System rules apply over API rules.** The public API never lets a key bypass restrictions the same user faces in the panel:  - **Source names** (`stats_source_names` right). When the user lacks   this right, advertiser stats responses return `{id, name}` with   `name` equal to the id — no human label leaks through. - **SubID encoding** (`modules.global.subid_encoding`). When enabled   for the system, the user only ever sees encoded SubIDs in the panel.   The API mirrors this both ways: `subid_excl`/`subid_incl` filter   endpoints accept the encoded form on write (decoded server-side   before storage) and emit the encoded form on read. - **Module gating.** Endpoints whose module is disabled for the   tenant don't appear in the spec or routes.txt at all.  **Client SDKs.** Each SDK is generated from this spec and published as a public GitHub repository under the `goadserver` organization. The same tarball is also embedded in the API server and downloadable from `/api/public/sdk/<lang>.tgz` — useful when GitHub is unreachable.  > **Per-network host.** The default `https://up.go-adserver.com` > baked into the published SDKs is a reference host. Every white-label > tenant runs on its own panel domain — override the host on first use > (`setHost()` / `Configuration.host` / `basePath` etc.). Or, fetch the > spec from your own tenant (`/api/public/openapi.yaml` returns it with > *your* hostname as the default) and regenerate the SDK locally — the > regenerated client has your URL baked in.  - **PHP** — `github.com/goadserver/goadserver-php`   (namespace `GoAdServer\\Api`, composer name `goadserver/sdk`).    ```bash   composer config repositories.goadserver vcs https://github.com/goadserver/goadserver-php   composer require goadserver/sdk:dev-main   ```    ```php   $cfg = GoAdServer\\Api\\Configuration::getDefaultConfiguration()           ->setHost('https://up.go-adserver.com')           ->setAccessToken('gas_live_…');   $api = new GoAdServer\\Api\\Api\\AccountAPIApi(null, $cfg);   $me  = $api->apiV1AccountGet();   ```  - **Go** — `github.com/goadserver/goadserver-go`.    ```bash   go get github.com/goadserver/goadserver-go@latest   ```    ```go   import gas \"github.com/goadserver/goadserver-go\"    cfg := gas.NewConfiguration()   cfg.Servers = gas.ServerConfigurations{{URL: \"https://up.go-adserver.com\"}}   cli := gas.NewAPIClient(cfg)   ctx := context.WithValue(context.Background(),       gas.ContextAccessToken, \"gas_live_…\")   me, _, err := cli.AccountAPI.ApiV1AccountGet(ctx).Execute()   ```  - **Python** — `github.com/goadserver/goadserver-python` (package   `goadserver`). Pulls `pydantic` + `urllib3` automatically.    ```bash   pip install git+https://github.com/goadserver/goadserver-python.git   ```    ```python   from goadserver import ApiClient, Configuration   from goadserver.api import AccountApi, CampaignsApi    cfg = Configuration(host=\"https://up.go-adserver.com\")   cfg.access_token = \"gas_live_…\"   client = ApiClient(cfg)    me = AccountApi(client).api_v1_account_get()   camps = CampaignsApi(client).api_v1_campaigns_get(per_page=10)   ```  - **JavaScript / TypeScript** — `github.com/goadserver/goadserver-js`   (npm name `goadserver-sdk`, generator `typescript-fetch`).    ```bash   npm install github:goadserver/goadserver-js   ```    ```ts   import { Configuration, AccountApi, CampaignsApi }     from \"goadserver-sdk\";    const cfg = new Configuration({     basePath: \"https://up.go-adserver.com\",     accessToken: \"gas_live_…\",   });    const me   = await new AccountApi(cfg).apiV1AccountGet();   const list = await new CampaignsApi(cfg).apiV1CampaignsGet({ perPage: 10 });   ```    The CJS build is broadly compatible (Node + bundlers); the ESM   build is missing trailing `.js` extensions in its imports, a known   `typescript-fetch` quirk — most consumers use CJS.  **Offline / firewalled install.** If the customer's network can't reach GitHub, every SDK's source is also served as a tarball from the API host:  ```bash curl -O https://up.go-adserver.com/api/public/sdk/python.tgz tar xzf python.tgz && pip install ./python ```  Round-trip smoke tests for all four SDKs live at `clients/_smoke/` in the platform repo. 
+    Public REST API for advertisers and publishers on the GoAdServer platform.  **Authentication.** All endpoints (except `/api/public/*`) require an API key passed as `Authorization: Bearer gas_live_…`. Create and manage keys in your account settings — each key has its own scopes, optional resource pinning, optional IP allowlist, and per-key rate limit.  **Apps (OAuth 2.0).** A tool other people connect uses an app token instead: authorization code + PKCE at `/oauth/authorize`, tokens from `/api/public/oauth/token`, passed as `Authorization: Bearer oat_…` on the same endpoints with the same scopes. See the [Build an integration](/api/docs/integrations) guide.  **System rules apply over API rules.** The public API never lets a key bypass restrictions the same user faces in the panel:  - **Source names** (`stats_source_names` right). When the user lacks   this right, advertiser stats responses return `{id, name}` with   `name` equal to the id — no human label leaks through. - **SubID encoding** (`modules.global.subid_encoding`). When enabled   for the system, the user only ever sees encoded SubIDs in the panel.   The API mirrors this both ways: `subid_excl`/`subid_incl` filter   endpoints accept the encoded form on write (decoded server-side   before storage) and emit the encoded form on read. A plain SubID   sent on write is stored as sent — a value is decoded only when it is   a genuine encoded token. - **Module gating.** Endpoints whose module is disabled for the   tenant don't appear in the spec or routes.txt at all.  **Rate limits.** Every response to an API key or app token carries the caller's budget for the current one-minute window:  | Header | Meaning | |---|---| | `X-RateLimit-Limit` | Requests per minute for this key (its `rate_limit_rpm`, default 60; an app's per-installation limit for app tokens). | | `X-RateLimit-Remaining` | Calls left in the current window. | | `X-RateLimit-Reset` | Unix seconds at which the window resets. | | `Retry-After` | On `429 rate_limited` only: seconds until a retry can succeed. |  Windows are fixed and start with the first call, so `Reset` is exact. The MCP endpoint (`POST /api/v1/mcp`) is charged per `tools/call` against its own bucket (default 240/min), and its response headers report that bucket; an exhausted MCP bucket answers the tool call with an error result rather than an HTTP 429, and the HTTP response then carries `Retry-After`.  **Idempotent writes.** Send `Idempotency-Key: <1–255 printable ASCII characters>` (a UUID is ideal) on a `POST` or `PATCH` to make a retry safe. For 24 hours per key (per app installation for app tokens):  - the first request runs and its response — status, body, `Content-Type`,   `Location`, `ETag` — is stored; - the same key with the same method, path, query and body replays that   response without running anything, adding `Idempotent-Replayed: true`; - the same key with a different request is `422 idempotency_key_reused`; - the same key while the first request is still running is   `409 idempotency_key_in_progress` (with `Retry-After: 1`).  `5xx` results are not stored — the key is released and a retry runs again. Bodies over 32 MB cannot carry the header (`413`). An invalid key is `400 invalid_idempotency_key`.  **Concurrency control (ETag / If-Match).** Every JSON `GET` response (up to 1 MB) carries a weak `ETag`, a hash of the body. Send it back:  - `If-None-Match: <etag>` on a `GET` — `304 Not Modified` when unchanged; - `If-Match: <etag>` on a `PATCH`, `PUT` or `DELETE` — the server reads the   resource's current representation (the `GET` of the same path, or of the   nearest parent path that has a `GET`: `PATCH …/campaigns/ron/7/active` is   checked against `GET …/campaigns/ron/7`) and answers   `412 precondition_failed` when it no longer matches, with the current tag in   `ETag` and `current_etag`. `If-Match: *` only requires the resource to   exist. A resource with no readable representation is also `412`.  The check is optimistic, not a lock: it closes the read-modify-write window two agents (or an agent and a person in the panel) would otherwise race in. Fields that change on their own (live spend counters) change the tag too — re-read and retry. A write response carries no new ETag; `GET` again.  **Strict fields.** Unknown body fields are a client error, not something to ignore: a request that sends a field the endpoint does not accept gets `422 unknown_fields` naming it. This is the default for keys created from 2026-10-12 (the key's `strict_fields` setting, shown on the key screen); older keys keep ignoring unknown fields (except on the few endpoints that have always refused them — the budget and on/off toggles). Override per request with `?strict=1` (reject) or `?strict=0` (ignore, everywhere). App tokens default to ignoring unknown fields; `?strict=1` opts in.  **Errors.** Every non-2xx response has the same shape:  ```json { \"error\": \"validation_error\", \"message\": \"Name is required.\", \"errors\": { \"name\": [\"Name is required.\"] } } ```  `error` is a stable machine-readable code — branch on it, never on `message`. `errors` (field → messages) appears on field-level validation failures; some codes add their own members (`scope`, `accepted_scopes`, `unknown_fields`, `current_etag`). Codes:  | Status | Codes | |---|---| | 400 | `bad_request`, `invalid_idempotency_key`, `invalid_body` | | 401 | `unauthenticated`, `invalid_api_key`, `revoked_api_key`, `expired_api_key`, `invalid_token`, `revoked_token`, `expired_token`, `user_not_found`, `account_deleted`, `account_disabled`, `admin_key_on_user_api`, `user_key_on_admin_api` | | 403 | `forbidden`, `missing_scope`, `forbidden_resource`, `ip_not_allowed`, `api_disabled`, `systemid_mismatch`, `endpoint_not_api_accessible`, `oauth_token_wrong_surface`, `mcp_not_enabled_for_app` | | 404 | `not_found` (also a disabled module or missing right — see ModuleDisabled) | | 405 | `method_not_allowed` — the `Allow` header (and the message) lists the methods the path does accept | | 409 | `conflict`, `idempotency_key_in_progress`, and resource-specific conflicts (e.g. `email_exists`) | | 412 | `precondition_failed` | | 413 | `payload_too_large` | | 422 | `validation_error`, `unknown_fields`, `idempotency_key_reused` | | 429 | `rate_limited` | | 5xx | `server_error`, `service_unavailable`, `bad_gateway`, `gateway_timeout` |  Endpoint-specific codes are listed on the endpoint. A response that would otherwise lack a code gets the generic one for its status from this table.  **Client SDKs.** Each SDK is generated from this spec and published as a public GitHub repository under the `goadserver` organization. The same tarball is also embedded in the API server and downloadable from `/api/public/sdk/<lang>.tgz` — useful when GitHub is unreachable.  > **Per-network host.** The default `https://up.go-adserver.com` > baked into the published SDKs is a reference host. Every white-label > tenant runs on its own panel domain — override the host on first use > (`setHost()` / `Configuration.host` / `basePath` etc.). Or, fetch the > spec from your own tenant (`/api/public/openapi.yaml` returns it with > *your* hostname as the default) and regenerate the SDK locally — the > regenerated client has your URL baked in.  - **PHP** — `github.com/goadserver/goadserver-php`   (namespace `GoAdServer\\Api`, composer name `goadserver/sdk`).    ```bash   composer config repositories.goadserver vcs https://github.com/goadserver/goadserver-php   composer require goadserver/sdk:dev-main   ```    ```php   $cfg = GoAdServer\\Api\\Configuration::getDefaultConfiguration()           ->setHost('https://up.go-adserver.com')           ->setAccessToken('gas_live_…');   $api = new GoAdServer\\Api\\Api\\AccountAPIApi(null, $cfg);   $me  = $api->apiV1AccountGet();   ```  - **Go** — `github.com/goadserver/goadserver-go`.    ```bash   go get github.com/goadserver/goadserver-go@latest   ```    ```go   import gas \"github.com/goadserver/goadserver-go\"    cfg := gas.NewConfiguration()   cfg.Servers = gas.ServerConfigurations{{URL: \"https://up.go-adserver.com\"}}   cli := gas.NewAPIClient(cfg)   ctx := context.WithValue(context.Background(),       gas.ContextAccessToken, \"gas_live_…\")   me, _, err := cli.AccountAPI.ApiV1AccountGet(ctx).Execute()   ```  - **Python** — `github.com/goadserver/goadserver-python` (package   `goadserver`). Pulls `pydantic` + `urllib3` automatically.    ```bash   pip install git+https://github.com/goadserver/goadserver-python.git   ```    ```python   from goadserver import ApiClient, Configuration   from goadserver.api import AccountApi, CampaignsApi    cfg = Configuration(host=\"https://up.go-adserver.com\")   cfg.access_token = \"gas_live_…\"   client = ApiClient(cfg)    me = AccountApi(client).api_v1_account_get()   camps = CampaignsApi(client).api_v1_campaigns_get(per_page=10)   ```  - **JavaScript / TypeScript** — `github.com/goadserver/goadserver-js`   (npm name `goadserver-sdk`, generator `typescript-fetch`).    ```bash   npm install github:goadserver/goadserver-js   ```    ```ts   import { Configuration, AccountApi, CampaignsApi }     from \"goadserver-sdk\";    const cfg = new Configuration({     basePath: \"https://up.go-adserver.com\",     accessToken: \"gas_live_…\",   });    const me   = await new AccountApi(cfg).apiV1AccountGet();   const list = await new CampaignsApi(cfg).apiV1CampaignsGet({ perPage: 10 });   ```    The CJS build is broadly compatible (Node + bundlers); the ESM   build is missing trailing `.js` extensions in its imports, a known   `typescript-fetch` quirk — most consumers use CJS.  **Offline / firewalled install.** If the customer's network can't reach GitHub, every SDK's source is also served as a tarball from the API host:  ```bash curl -O https://up.go-adserver.com/api/public/sdk/python.tgz tar xzf python.tgz && pip install ./python ```  Round-trip smoke tests for all four SDKs live at `clients/_smoke/` in the platform repo. 
 
     The version of the OpenAPI document: 1.0.0
     Generated by OpenAPI Generator (https://openapi-generator.tech)
@@ -16,8 +16,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
 from datetime import date
-from pydantic import Field, StrictStr, field_validator
-from typing import Optional
+from pydantic import Field, StrictInt, StrictStr, field_validator
+from typing import List, Optional
 from typing_extensions import Annotated
 from goadserver.models.stats_response import StatsResponse
 
@@ -45,12 +45,26 @@ class StatsAdvertiserRTBApi:
         var_from: Annotated[Optional[date], Field(description="ISO date — inclusive start. Defaults to 7 days ago.")] = None,
         to: Annotated[Optional[date], Field(description="ISO date — inclusive end. Defaults to today. Max range 92 days.")] = None,
         interval: Optional[StrictStr] = None,
-        group_by: Annotated[Optional[StrictStr], Field(description="Comma-separated dimensions to aggregate by, in priority order. Max 4 dimensions. Available dimensions vary per endpoint — see the per-endpoint description. ")] = None,
-        metrics: Annotated[Optional[StrictStr], Field(description="Optional comma-separated metric whitelist. When omitted, all metrics for the endpoint are returned. ")] = None,
+        group_by: Annotated[Optional[Annotated[List[StrictStr], Field(max_length=8)]], Field(description="Dimensions to aggregate by. Multi-pick up to 8; unknown → 422. Each comes back as `{id, name}` (`country`: `{id: \"US\", name}`); `ad` and `site` carry the id as name. Without the `stats_source_names` right `name` equals the id.  | Dim | Meaning | |---|---| | `campaign` | RTB campaign | | `network` | RTB network (SSP) the request came from | | `ad_type` | ad type | | `device` | device type | | `country` | country | | `isp` | ISP / ASN | | `domain` | domain | | `spaceid` | publisher adzone id | | `site` | publisher site id | | `os` | operating system | | `browser` | browser | | `conn_type` | connection type | | `ad` | ad id | ")] = None,
+        metrics: Annotated[Optional[List[StrictStr]], Field(description="Metrics to return (comma-separated). Empty → the default set `requests, bids, wins, noresult, errors, views, clicks, ctr, wpr, paid`; `all` → every metric. Opt-in: `timeouts`, `skipnobids`, `skiptimeouts`, `win_pct` (wins / bids × 100), `bid_rate` (bids / requests × 100), `avg_bidfloor`, `avg_time` (average response time per request). `wpr` is wins / requests × 100. An unknown name is ignored and echoed in `ignored_metrics`; with `strict=1` it is a 422. ")] = None,
+        filter_campaign_id: Annotated[Optional[StrictStr], Field(description="RTB campaign ID, or a comma-separated list.")] = None,
+        filter_network_id: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="RTB network ID.")] = None,
+        filter_ad_type: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Ad-type ID. Available types are tenant-specific (banner, popunder, native, video, push, …); the dropdown shows the types active on your system. ")] = None,
+        filter_device: Annotated[Optional[StrictInt], Field(description="Device type:  | ID | Device | |----|--------| | 1  | Computer | | 2  | Tablet | | 3  | Phone | | 4  | Console | | 5  | Wearable | | 6  | TV | ")] = None,
+        filter_country: Annotated[Optional[Annotated[str, Field(min_length=2, strict=True, max_length=2)]], Field(description="ISO-3166 alpha-2 country code (e.g. `US`, `DE`, `BR`).")] = None,
+        filter_spaceid: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Adspace ID.")] = None,
+        filter_isp_id: Annotated[Optional[StrictStr], Field(description="ISP / ASN id, or a comma-separated list.")] = None,
+        filter_domain_id: Annotated[Optional[StrictStr], Field(description="Domain id, or a comma-separated list.")] = None,
+        filter_site_id: Annotated[Optional[StrictStr], Field(description="Publisher site id, or a comma-separated list.")] = None,
+        filter_ad_id: Annotated[Optional[StrictStr], Field(description="Ad id, or a comma-separated list.")] = None,
+        filter_os: Annotated[Optional[StrictStr], Field(description="Operating-system id (`GET /api/v1/lookups/operating-systems`), or a comma-separated list.")] = None,
+        filter_browser: Annotated[Optional[StrictStr], Field(description="Browser id (`GET /api/v1/lookups/browsers`), or a comma-separated list.")] = None,
+        filter_conn_type: Annotated[Optional[StrictStr], Field(description="Connection-type id, or a comma-separated list.")] = None,
         format: Optional[StrictStr] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         per_page: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = None,
-        sort: Annotated[Optional[StrictStr], Field(description="Field name. Prefix with `-` for descending (e.g. `-views`).")] = None,
+        sort: Annotated[Optional[StrictStr], Field(description="Sort key, `-` prefix for descending: `requests`, `bids`, `wins`, `noresult`, `errors`, `views`, `clicks`, `paid`, `timeouts`, `skipnobids`, `skiptimeouts`, `ctr`, `wpr`, `win_pct`, `bid_rate`, `date` (non-`sum` interval only). Any other value falls back to `-paid`. ")] = None,
+        strict: Annotated[Optional[StrictStr], Field(description="`1` turns an unknown metric name into a 422 instead of ignoring it.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -66,7 +80,7 @@ class StatsAdvertiserRTBApi:
     ) -> StatsResponse:
         """DSP / RTB-side stats.
 
-        **group_by:** `campaign`, `country`, `isp`, `domain`, `spaceid`.  **Metrics:** `requests`, `bids`, `wins`, `noresult`, `errors`, `views`, `clicks`, `ctr`, `wpr`, `conversions`, `paid`. 
+        Bid-stream stats for the advertiser's RTB campaigns — the panel's RTB Stats report (`dspstats_stats` / `dspstats_stats_sum`), same sums and formulas.  **Money unit:** `paid` is in the account currency's main unit (cents ÷ 100), rounded to 4 decimals. `avg_bidfloor` is the average floor per request in main units — a CPM for impression-billed ad types, a per-click price for click-billed ones. `ctr`, `wpr`, `win_pct` and `bid_rate` are percentages.  **Dates:** `from` and `to` are used only when both are given; otherwise the last 7 days. Max range 92 days. `interval=hour` buckets on the bid timestamp (`YYYY-MM-DD HH:00`).  Not on this endpoint (panel-only): the per-error-code breakdown and the merge of externally pulled network counters (`nw_views`/`nw_clicks`/`nw_earned`). 
 
         :param var_from: ISO date — inclusive start. Defaults to 7 days ago.
         :type var_from: date
@@ -74,18 +88,46 @@ class StatsAdvertiserRTBApi:
         :type to: date
         :param interval:
         :type interval: str
-        :param group_by: Comma-separated dimensions to aggregate by, in priority order. Max 4 dimensions. Available dimensions vary per endpoint — see the per-endpoint description. 
-        :type group_by: str
-        :param metrics: Optional comma-separated metric whitelist. When omitted, all metrics for the endpoint are returned. 
-        :type metrics: str
+        :param group_by: Dimensions to aggregate by. Multi-pick up to 8; unknown → 422. Each comes back as `{id, name}` (`country`: `{id: \"US\", name}`); `ad` and `site` carry the id as name. Without the `stats_source_names` right `name` equals the id.  | Dim | Meaning | |---|---| | `campaign` | RTB campaign | | `network` | RTB network (SSP) the request came from | | `ad_type` | ad type | | `device` | device type | | `country` | country | | `isp` | ISP / ASN | | `domain` | domain | | `spaceid` | publisher adzone id | | `site` | publisher site id | | `os` | operating system | | `browser` | browser | | `conn_type` | connection type | | `ad` | ad id | 
+        :type group_by: List[str]
+        :param metrics: Metrics to return (comma-separated). Empty → the default set `requests, bids, wins, noresult, errors, views, clicks, ctr, wpr, paid`; `all` → every metric. Opt-in: `timeouts`, `skipnobids`, `skiptimeouts`, `win_pct` (wins / bids × 100), `bid_rate` (bids / requests × 100), `avg_bidfloor`, `avg_time` (average response time per request). `wpr` is wins / requests × 100. An unknown name is ignored and echoed in `ignored_metrics`; with `strict=1` it is a 422. 
+        :type metrics: List[str]
+        :param filter_campaign_id: RTB campaign ID, or a comma-separated list.
+        :type filter_campaign_id: str
+        :param filter_network_id: RTB network ID.
+        :type filter_network_id: int
+        :param filter_ad_type: Ad-type ID. Available types are tenant-specific (banner, popunder, native, video, push, …); the dropdown shows the types active on your system. 
+        :type filter_ad_type: int
+        :param filter_device: Device type:  | ID | Device | |----|--------| | 1  | Computer | | 2  | Tablet | | 3  | Phone | | 4  | Console | | 5  | Wearable | | 6  | TV | 
+        :type filter_device: int
+        :param filter_country: ISO-3166 alpha-2 country code (e.g. `US`, `DE`, `BR`).
+        :type filter_country: str
+        :param filter_spaceid: Adspace ID.
+        :type filter_spaceid: int
+        :param filter_isp_id: ISP / ASN id, or a comma-separated list.
+        :type filter_isp_id: str
+        :param filter_domain_id: Domain id, or a comma-separated list.
+        :type filter_domain_id: str
+        :param filter_site_id: Publisher site id, or a comma-separated list.
+        :type filter_site_id: str
+        :param filter_ad_id: Ad id, or a comma-separated list.
+        :type filter_ad_id: str
+        :param filter_os: Operating-system id (`GET /api/v1/lookups/operating-systems`), or a comma-separated list.
+        :type filter_os: str
+        :param filter_browser: Browser id (`GET /api/v1/lookups/browsers`), or a comma-separated list.
+        :type filter_browser: str
+        :param filter_conn_type: Connection-type id, or a comma-separated list.
+        :type filter_conn_type: str
         :param format:
         :type format: str
         :param page:
         :type page: int
         :param per_page:
         :type per_page: int
-        :param sort: Field name. Prefix with `-` for descending (e.g. `-views`).
+        :param sort: Sort key, `-` prefix for descending: `requests`, `bids`, `wins`, `noresult`, `errors`, `views`, `clicks`, `paid`, `timeouts`, `skipnobids`, `skiptimeouts`, `ctr`, `wpr`, `win_pct`, `bid_rate`, `date` (non-`sum` interval only). Any other value falls back to `-paid`. 
         :type sort: str
+        :param strict: `1` turns an unknown metric name into a 422 instead of ignoring it.
+        :type strict: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -114,10 +156,24 @@ class StatsAdvertiserRTBApi:
             interval=interval,
             group_by=group_by,
             metrics=metrics,
+            filter_campaign_id=filter_campaign_id,
+            filter_network_id=filter_network_id,
+            filter_ad_type=filter_ad_type,
+            filter_device=filter_device,
+            filter_country=filter_country,
+            filter_spaceid=filter_spaceid,
+            filter_isp_id=filter_isp_id,
+            filter_domain_id=filter_domain_id,
+            filter_site_id=filter_site_id,
+            filter_ad_id=filter_ad_id,
+            filter_os=filter_os,
+            filter_browser=filter_browser,
+            filter_conn_type=filter_conn_type,
             format=format,
             page=page,
             per_page=per_page,
             sort=sort,
+            strict=strict,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -126,6 +182,10 @@ class StatsAdvertiserRTBApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "StatsResponse",
+            '401': "Error",
+            '403': "Error",
+            '422': None,
+            '429': "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -144,12 +204,26 @@ class StatsAdvertiserRTBApi:
         var_from: Annotated[Optional[date], Field(description="ISO date — inclusive start. Defaults to 7 days ago.")] = None,
         to: Annotated[Optional[date], Field(description="ISO date — inclusive end. Defaults to today. Max range 92 days.")] = None,
         interval: Optional[StrictStr] = None,
-        group_by: Annotated[Optional[StrictStr], Field(description="Comma-separated dimensions to aggregate by, in priority order. Max 4 dimensions. Available dimensions vary per endpoint — see the per-endpoint description. ")] = None,
-        metrics: Annotated[Optional[StrictStr], Field(description="Optional comma-separated metric whitelist. When omitted, all metrics for the endpoint are returned. ")] = None,
+        group_by: Annotated[Optional[Annotated[List[StrictStr], Field(max_length=8)]], Field(description="Dimensions to aggregate by. Multi-pick up to 8; unknown → 422. Each comes back as `{id, name}` (`country`: `{id: \"US\", name}`); `ad` and `site` carry the id as name. Without the `stats_source_names` right `name` equals the id.  | Dim | Meaning | |---|---| | `campaign` | RTB campaign | | `network` | RTB network (SSP) the request came from | | `ad_type` | ad type | | `device` | device type | | `country` | country | | `isp` | ISP / ASN | | `domain` | domain | | `spaceid` | publisher adzone id | | `site` | publisher site id | | `os` | operating system | | `browser` | browser | | `conn_type` | connection type | | `ad` | ad id | ")] = None,
+        metrics: Annotated[Optional[List[StrictStr]], Field(description="Metrics to return (comma-separated). Empty → the default set `requests, bids, wins, noresult, errors, views, clicks, ctr, wpr, paid`; `all` → every metric. Opt-in: `timeouts`, `skipnobids`, `skiptimeouts`, `win_pct` (wins / bids × 100), `bid_rate` (bids / requests × 100), `avg_bidfloor`, `avg_time` (average response time per request). `wpr` is wins / requests × 100. An unknown name is ignored and echoed in `ignored_metrics`; with `strict=1` it is a 422. ")] = None,
+        filter_campaign_id: Annotated[Optional[StrictStr], Field(description="RTB campaign ID, or a comma-separated list.")] = None,
+        filter_network_id: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="RTB network ID.")] = None,
+        filter_ad_type: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Ad-type ID. Available types are tenant-specific (banner, popunder, native, video, push, …); the dropdown shows the types active on your system. ")] = None,
+        filter_device: Annotated[Optional[StrictInt], Field(description="Device type:  | ID | Device | |----|--------| | 1  | Computer | | 2  | Tablet | | 3  | Phone | | 4  | Console | | 5  | Wearable | | 6  | TV | ")] = None,
+        filter_country: Annotated[Optional[Annotated[str, Field(min_length=2, strict=True, max_length=2)]], Field(description="ISO-3166 alpha-2 country code (e.g. `US`, `DE`, `BR`).")] = None,
+        filter_spaceid: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Adspace ID.")] = None,
+        filter_isp_id: Annotated[Optional[StrictStr], Field(description="ISP / ASN id, or a comma-separated list.")] = None,
+        filter_domain_id: Annotated[Optional[StrictStr], Field(description="Domain id, or a comma-separated list.")] = None,
+        filter_site_id: Annotated[Optional[StrictStr], Field(description="Publisher site id, or a comma-separated list.")] = None,
+        filter_ad_id: Annotated[Optional[StrictStr], Field(description="Ad id, or a comma-separated list.")] = None,
+        filter_os: Annotated[Optional[StrictStr], Field(description="Operating-system id (`GET /api/v1/lookups/operating-systems`), or a comma-separated list.")] = None,
+        filter_browser: Annotated[Optional[StrictStr], Field(description="Browser id (`GET /api/v1/lookups/browsers`), or a comma-separated list.")] = None,
+        filter_conn_type: Annotated[Optional[StrictStr], Field(description="Connection-type id, or a comma-separated list.")] = None,
         format: Optional[StrictStr] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         per_page: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = None,
-        sort: Annotated[Optional[StrictStr], Field(description="Field name. Prefix with `-` for descending (e.g. `-views`).")] = None,
+        sort: Annotated[Optional[StrictStr], Field(description="Sort key, `-` prefix for descending: `requests`, `bids`, `wins`, `noresult`, `errors`, `views`, `clicks`, `paid`, `timeouts`, `skipnobids`, `skiptimeouts`, `ctr`, `wpr`, `win_pct`, `bid_rate`, `date` (non-`sum` interval only). Any other value falls back to `-paid`. ")] = None,
+        strict: Annotated[Optional[StrictStr], Field(description="`1` turns an unknown metric name into a 422 instead of ignoring it.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -165,7 +239,7 @@ class StatsAdvertiserRTBApi:
     ) -> ApiResponse[StatsResponse]:
         """DSP / RTB-side stats.
 
-        **group_by:** `campaign`, `country`, `isp`, `domain`, `spaceid`.  **Metrics:** `requests`, `bids`, `wins`, `noresult`, `errors`, `views`, `clicks`, `ctr`, `wpr`, `conversions`, `paid`. 
+        Bid-stream stats for the advertiser's RTB campaigns — the panel's RTB Stats report (`dspstats_stats` / `dspstats_stats_sum`), same sums and formulas.  **Money unit:** `paid` is in the account currency's main unit (cents ÷ 100), rounded to 4 decimals. `avg_bidfloor` is the average floor per request in main units — a CPM for impression-billed ad types, a per-click price for click-billed ones. `ctr`, `wpr`, `win_pct` and `bid_rate` are percentages.  **Dates:** `from` and `to` are used only when both are given; otherwise the last 7 days. Max range 92 days. `interval=hour` buckets on the bid timestamp (`YYYY-MM-DD HH:00`).  Not on this endpoint (panel-only): the per-error-code breakdown and the merge of externally pulled network counters (`nw_views`/`nw_clicks`/`nw_earned`). 
 
         :param var_from: ISO date — inclusive start. Defaults to 7 days ago.
         :type var_from: date
@@ -173,18 +247,46 @@ class StatsAdvertiserRTBApi:
         :type to: date
         :param interval:
         :type interval: str
-        :param group_by: Comma-separated dimensions to aggregate by, in priority order. Max 4 dimensions. Available dimensions vary per endpoint — see the per-endpoint description. 
-        :type group_by: str
-        :param metrics: Optional comma-separated metric whitelist. When omitted, all metrics for the endpoint are returned. 
-        :type metrics: str
+        :param group_by: Dimensions to aggregate by. Multi-pick up to 8; unknown → 422. Each comes back as `{id, name}` (`country`: `{id: \"US\", name}`); `ad` and `site` carry the id as name. Without the `stats_source_names` right `name` equals the id.  | Dim | Meaning | |---|---| | `campaign` | RTB campaign | | `network` | RTB network (SSP) the request came from | | `ad_type` | ad type | | `device` | device type | | `country` | country | | `isp` | ISP / ASN | | `domain` | domain | | `spaceid` | publisher adzone id | | `site` | publisher site id | | `os` | operating system | | `browser` | browser | | `conn_type` | connection type | | `ad` | ad id | 
+        :type group_by: List[str]
+        :param metrics: Metrics to return (comma-separated). Empty → the default set `requests, bids, wins, noresult, errors, views, clicks, ctr, wpr, paid`; `all` → every metric. Opt-in: `timeouts`, `skipnobids`, `skiptimeouts`, `win_pct` (wins / bids × 100), `bid_rate` (bids / requests × 100), `avg_bidfloor`, `avg_time` (average response time per request). `wpr` is wins / requests × 100. An unknown name is ignored and echoed in `ignored_metrics`; with `strict=1` it is a 422. 
+        :type metrics: List[str]
+        :param filter_campaign_id: RTB campaign ID, or a comma-separated list.
+        :type filter_campaign_id: str
+        :param filter_network_id: RTB network ID.
+        :type filter_network_id: int
+        :param filter_ad_type: Ad-type ID. Available types are tenant-specific (banner, popunder, native, video, push, …); the dropdown shows the types active on your system. 
+        :type filter_ad_type: int
+        :param filter_device: Device type:  | ID | Device | |----|--------| | 1  | Computer | | 2  | Tablet | | 3  | Phone | | 4  | Console | | 5  | Wearable | | 6  | TV | 
+        :type filter_device: int
+        :param filter_country: ISO-3166 alpha-2 country code (e.g. `US`, `DE`, `BR`).
+        :type filter_country: str
+        :param filter_spaceid: Adspace ID.
+        :type filter_spaceid: int
+        :param filter_isp_id: ISP / ASN id, or a comma-separated list.
+        :type filter_isp_id: str
+        :param filter_domain_id: Domain id, or a comma-separated list.
+        :type filter_domain_id: str
+        :param filter_site_id: Publisher site id, or a comma-separated list.
+        :type filter_site_id: str
+        :param filter_ad_id: Ad id, or a comma-separated list.
+        :type filter_ad_id: str
+        :param filter_os: Operating-system id (`GET /api/v1/lookups/operating-systems`), or a comma-separated list.
+        :type filter_os: str
+        :param filter_browser: Browser id (`GET /api/v1/lookups/browsers`), or a comma-separated list.
+        :type filter_browser: str
+        :param filter_conn_type: Connection-type id, or a comma-separated list.
+        :type filter_conn_type: str
         :param format:
         :type format: str
         :param page:
         :type page: int
         :param per_page:
         :type per_page: int
-        :param sort: Field name. Prefix with `-` for descending (e.g. `-views`).
+        :param sort: Sort key, `-` prefix for descending: `requests`, `bids`, `wins`, `noresult`, `errors`, `views`, `clicks`, `paid`, `timeouts`, `skipnobids`, `skiptimeouts`, `ctr`, `wpr`, `win_pct`, `bid_rate`, `date` (non-`sum` interval only). Any other value falls back to `-paid`. 
         :type sort: str
+        :param strict: `1` turns an unknown metric name into a 422 instead of ignoring it.
+        :type strict: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -213,10 +315,24 @@ class StatsAdvertiserRTBApi:
             interval=interval,
             group_by=group_by,
             metrics=metrics,
+            filter_campaign_id=filter_campaign_id,
+            filter_network_id=filter_network_id,
+            filter_ad_type=filter_ad_type,
+            filter_device=filter_device,
+            filter_country=filter_country,
+            filter_spaceid=filter_spaceid,
+            filter_isp_id=filter_isp_id,
+            filter_domain_id=filter_domain_id,
+            filter_site_id=filter_site_id,
+            filter_ad_id=filter_ad_id,
+            filter_os=filter_os,
+            filter_browser=filter_browser,
+            filter_conn_type=filter_conn_type,
             format=format,
             page=page,
             per_page=per_page,
             sort=sort,
+            strict=strict,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -225,6 +341,10 @@ class StatsAdvertiserRTBApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "StatsResponse",
+            '401': "Error",
+            '403': "Error",
+            '422': None,
+            '429': "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -243,12 +363,26 @@ class StatsAdvertiserRTBApi:
         var_from: Annotated[Optional[date], Field(description="ISO date — inclusive start. Defaults to 7 days ago.")] = None,
         to: Annotated[Optional[date], Field(description="ISO date — inclusive end. Defaults to today. Max range 92 days.")] = None,
         interval: Optional[StrictStr] = None,
-        group_by: Annotated[Optional[StrictStr], Field(description="Comma-separated dimensions to aggregate by, in priority order. Max 4 dimensions. Available dimensions vary per endpoint — see the per-endpoint description. ")] = None,
-        metrics: Annotated[Optional[StrictStr], Field(description="Optional comma-separated metric whitelist. When omitted, all metrics for the endpoint are returned. ")] = None,
+        group_by: Annotated[Optional[Annotated[List[StrictStr], Field(max_length=8)]], Field(description="Dimensions to aggregate by. Multi-pick up to 8; unknown → 422. Each comes back as `{id, name}` (`country`: `{id: \"US\", name}`); `ad` and `site` carry the id as name. Without the `stats_source_names` right `name` equals the id.  | Dim | Meaning | |---|---| | `campaign` | RTB campaign | | `network` | RTB network (SSP) the request came from | | `ad_type` | ad type | | `device` | device type | | `country` | country | | `isp` | ISP / ASN | | `domain` | domain | | `spaceid` | publisher adzone id | | `site` | publisher site id | | `os` | operating system | | `browser` | browser | | `conn_type` | connection type | | `ad` | ad id | ")] = None,
+        metrics: Annotated[Optional[List[StrictStr]], Field(description="Metrics to return (comma-separated). Empty → the default set `requests, bids, wins, noresult, errors, views, clicks, ctr, wpr, paid`; `all` → every metric. Opt-in: `timeouts`, `skipnobids`, `skiptimeouts`, `win_pct` (wins / bids × 100), `bid_rate` (bids / requests × 100), `avg_bidfloor`, `avg_time` (average response time per request). `wpr` is wins / requests × 100. An unknown name is ignored and echoed in `ignored_metrics`; with `strict=1` it is a 422. ")] = None,
+        filter_campaign_id: Annotated[Optional[StrictStr], Field(description="RTB campaign ID, or a comma-separated list.")] = None,
+        filter_network_id: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="RTB network ID.")] = None,
+        filter_ad_type: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Ad-type ID. Available types are tenant-specific (banner, popunder, native, video, push, …); the dropdown shows the types active on your system. ")] = None,
+        filter_device: Annotated[Optional[StrictInt], Field(description="Device type:  | ID | Device | |----|--------| | 1  | Computer | | 2  | Tablet | | 3  | Phone | | 4  | Console | | 5  | Wearable | | 6  | TV | ")] = None,
+        filter_country: Annotated[Optional[Annotated[str, Field(min_length=2, strict=True, max_length=2)]], Field(description="ISO-3166 alpha-2 country code (e.g. `US`, `DE`, `BR`).")] = None,
+        filter_spaceid: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Adspace ID.")] = None,
+        filter_isp_id: Annotated[Optional[StrictStr], Field(description="ISP / ASN id, or a comma-separated list.")] = None,
+        filter_domain_id: Annotated[Optional[StrictStr], Field(description="Domain id, or a comma-separated list.")] = None,
+        filter_site_id: Annotated[Optional[StrictStr], Field(description="Publisher site id, or a comma-separated list.")] = None,
+        filter_ad_id: Annotated[Optional[StrictStr], Field(description="Ad id, or a comma-separated list.")] = None,
+        filter_os: Annotated[Optional[StrictStr], Field(description="Operating-system id (`GET /api/v1/lookups/operating-systems`), or a comma-separated list.")] = None,
+        filter_browser: Annotated[Optional[StrictStr], Field(description="Browser id (`GET /api/v1/lookups/browsers`), or a comma-separated list.")] = None,
+        filter_conn_type: Annotated[Optional[StrictStr], Field(description="Connection-type id, or a comma-separated list.")] = None,
         format: Optional[StrictStr] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         per_page: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = None,
-        sort: Annotated[Optional[StrictStr], Field(description="Field name. Prefix with `-` for descending (e.g. `-views`).")] = None,
+        sort: Annotated[Optional[StrictStr], Field(description="Sort key, `-` prefix for descending: `requests`, `bids`, `wins`, `noresult`, `errors`, `views`, `clicks`, `paid`, `timeouts`, `skipnobids`, `skiptimeouts`, `ctr`, `wpr`, `win_pct`, `bid_rate`, `date` (non-`sum` interval only). Any other value falls back to `-paid`. ")] = None,
+        strict: Annotated[Optional[StrictStr], Field(description="`1` turns an unknown metric name into a 422 instead of ignoring it.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -264,7 +398,7 @@ class StatsAdvertiserRTBApi:
     ) -> RESTResponseType:
         """DSP / RTB-side stats.
 
-        **group_by:** `campaign`, `country`, `isp`, `domain`, `spaceid`.  **Metrics:** `requests`, `bids`, `wins`, `noresult`, `errors`, `views`, `clicks`, `ctr`, `wpr`, `conversions`, `paid`. 
+        Bid-stream stats for the advertiser's RTB campaigns — the panel's RTB Stats report (`dspstats_stats` / `dspstats_stats_sum`), same sums and formulas.  **Money unit:** `paid` is in the account currency's main unit (cents ÷ 100), rounded to 4 decimals. `avg_bidfloor` is the average floor per request in main units — a CPM for impression-billed ad types, a per-click price for click-billed ones. `ctr`, `wpr`, `win_pct` and `bid_rate` are percentages.  **Dates:** `from` and `to` are used only when both are given; otherwise the last 7 days. Max range 92 days. `interval=hour` buckets on the bid timestamp (`YYYY-MM-DD HH:00`).  Not on this endpoint (panel-only): the per-error-code breakdown and the merge of externally pulled network counters (`nw_views`/`nw_clicks`/`nw_earned`). 
 
         :param var_from: ISO date — inclusive start. Defaults to 7 days ago.
         :type var_from: date
@@ -272,18 +406,46 @@ class StatsAdvertiserRTBApi:
         :type to: date
         :param interval:
         :type interval: str
-        :param group_by: Comma-separated dimensions to aggregate by, in priority order. Max 4 dimensions. Available dimensions vary per endpoint — see the per-endpoint description. 
-        :type group_by: str
-        :param metrics: Optional comma-separated metric whitelist. When omitted, all metrics for the endpoint are returned. 
-        :type metrics: str
+        :param group_by: Dimensions to aggregate by. Multi-pick up to 8; unknown → 422. Each comes back as `{id, name}` (`country`: `{id: \"US\", name}`); `ad` and `site` carry the id as name. Without the `stats_source_names` right `name` equals the id.  | Dim | Meaning | |---|---| | `campaign` | RTB campaign | | `network` | RTB network (SSP) the request came from | | `ad_type` | ad type | | `device` | device type | | `country` | country | | `isp` | ISP / ASN | | `domain` | domain | | `spaceid` | publisher adzone id | | `site` | publisher site id | | `os` | operating system | | `browser` | browser | | `conn_type` | connection type | | `ad` | ad id | 
+        :type group_by: List[str]
+        :param metrics: Metrics to return (comma-separated). Empty → the default set `requests, bids, wins, noresult, errors, views, clicks, ctr, wpr, paid`; `all` → every metric. Opt-in: `timeouts`, `skipnobids`, `skiptimeouts`, `win_pct` (wins / bids × 100), `bid_rate` (bids / requests × 100), `avg_bidfloor`, `avg_time` (average response time per request). `wpr` is wins / requests × 100. An unknown name is ignored and echoed in `ignored_metrics`; with `strict=1` it is a 422. 
+        :type metrics: List[str]
+        :param filter_campaign_id: RTB campaign ID, or a comma-separated list.
+        :type filter_campaign_id: str
+        :param filter_network_id: RTB network ID.
+        :type filter_network_id: int
+        :param filter_ad_type: Ad-type ID. Available types are tenant-specific (banner, popunder, native, video, push, …); the dropdown shows the types active on your system. 
+        :type filter_ad_type: int
+        :param filter_device: Device type:  | ID | Device | |----|--------| | 1  | Computer | | 2  | Tablet | | 3  | Phone | | 4  | Console | | 5  | Wearable | | 6  | TV | 
+        :type filter_device: int
+        :param filter_country: ISO-3166 alpha-2 country code (e.g. `US`, `DE`, `BR`).
+        :type filter_country: str
+        :param filter_spaceid: Adspace ID.
+        :type filter_spaceid: int
+        :param filter_isp_id: ISP / ASN id, or a comma-separated list.
+        :type filter_isp_id: str
+        :param filter_domain_id: Domain id, or a comma-separated list.
+        :type filter_domain_id: str
+        :param filter_site_id: Publisher site id, or a comma-separated list.
+        :type filter_site_id: str
+        :param filter_ad_id: Ad id, or a comma-separated list.
+        :type filter_ad_id: str
+        :param filter_os: Operating-system id (`GET /api/v1/lookups/operating-systems`), or a comma-separated list.
+        :type filter_os: str
+        :param filter_browser: Browser id (`GET /api/v1/lookups/browsers`), or a comma-separated list.
+        :type filter_browser: str
+        :param filter_conn_type: Connection-type id, or a comma-separated list.
+        :type filter_conn_type: str
         :param format:
         :type format: str
         :param page:
         :type page: int
         :param per_page:
         :type per_page: int
-        :param sort: Field name. Prefix with `-` for descending (e.g. `-views`).
+        :param sort: Sort key, `-` prefix for descending: `requests`, `bids`, `wins`, `noresult`, `errors`, `views`, `clicks`, `paid`, `timeouts`, `skipnobids`, `skiptimeouts`, `ctr`, `wpr`, `win_pct`, `bid_rate`, `date` (non-`sum` interval only). Any other value falls back to `-paid`. 
         :type sort: str
+        :param strict: `1` turns an unknown metric name into a 422 instead of ignoring it.
+        :type strict: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -312,10 +474,24 @@ class StatsAdvertiserRTBApi:
             interval=interval,
             group_by=group_by,
             metrics=metrics,
+            filter_campaign_id=filter_campaign_id,
+            filter_network_id=filter_network_id,
+            filter_ad_type=filter_ad_type,
+            filter_device=filter_device,
+            filter_country=filter_country,
+            filter_spaceid=filter_spaceid,
+            filter_isp_id=filter_isp_id,
+            filter_domain_id=filter_domain_id,
+            filter_site_id=filter_site_id,
+            filter_ad_id=filter_ad_id,
+            filter_os=filter_os,
+            filter_browser=filter_browser,
+            filter_conn_type=filter_conn_type,
             format=format,
             page=page,
             per_page=per_page,
             sort=sort,
+            strict=strict,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -324,6 +500,10 @@ class StatsAdvertiserRTBApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "StatsResponse",
+            '401': "Error",
+            '403': "Error",
+            '422': None,
+            '429': "Error",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -339,10 +519,24 @@ class StatsAdvertiserRTBApi:
         interval,
         group_by,
         metrics,
+        filter_campaign_id,
+        filter_network_id,
+        filter_ad_type,
+        filter_device,
+        filter_country,
+        filter_spaceid,
+        filter_isp_id,
+        filter_domain_id,
+        filter_site_id,
+        filter_ad_id,
+        filter_os,
+        filter_browser,
+        filter_conn_type,
         format,
         page,
         per_page,
         sort,
+        strict,
         _request_auth,
         _content_type,
         _headers,
@@ -352,6 +546,8 @@ class StatsAdvertiserRTBApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'group_by': 'csv',
+            'metrics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -403,6 +599,58 @@ class StatsAdvertiserRTBApi:
             
             _query_params.append(('metrics', metrics))
             
+        if filter_campaign_id is not None:
+            
+            _query_params.append(('filter[campaign_id]', filter_campaign_id))
+            
+        if filter_network_id is not None:
+            
+            _query_params.append(('filter[network_id]', filter_network_id))
+            
+        if filter_ad_type is not None:
+            
+            _query_params.append(('filter[ad_type]', filter_ad_type))
+            
+        if filter_device is not None:
+            
+            _query_params.append(('filter[device]', filter_device))
+            
+        if filter_country is not None:
+            
+            _query_params.append(('filter[country]', filter_country))
+            
+        if filter_spaceid is not None:
+            
+            _query_params.append(('filter[spaceid]', filter_spaceid))
+            
+        if filter_isp_id is not None:
+            
+            _query_params.append(('filter[isp_id]', filter_isp_id))
+            
+        if filter_domain_id is not None:
+            
+            _query_params.append(('filter[domain_id]', filter_domain_id))
+            
+        if filter_site_id is not None:
+            
+            _query_params.append(('filter[site_id]', filter_site_id))
+            
+        if filter_ad_id is not None:
+            
+            _query_params.append(('filter[ad_id]', filter_ad_id))
+            
+        if filter_os is not None:
+            
+            _query_params.append(('filter[os]', filter_os))
+            
+        if filter_browser is not None:
+            
+            _query_params.append(('filter[browser]', filter_browser))
+            
+        if filter_conn_type is not None:
+            
+            _query_params.append(('filter[conn_type]', filter_conn_type))
+            
         if format is not None:
             
             _query_params.append(('format', format))
@@ -418,6 +666,10 @@ class StatsAdvertiserRTBApi:
         if sort is not None:
             
             _query_params.append(('sort', sort))
+            
+        if strict is not None:
+            
+            _query_params.append(('strict', strict))
             
         # process the header parameters
         # process the form parameters

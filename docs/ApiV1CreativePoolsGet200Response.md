@@ -6,7 +6,7 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **data** | [**List[ApiV1CreativePoolsGet200ResponseDataInner]**](ApiV1CreativePoolsGet200ResponseDataInner.md) |  | [optional] 
-**total** | **int** |  | [optional] 
+**meta** | [**ListMeta**](ListMeta.md) |  | [optional] 
 
 ## Example
 

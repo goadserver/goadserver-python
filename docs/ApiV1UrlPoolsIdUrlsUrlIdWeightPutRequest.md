@@ -5,7 +5,7 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**weight** | **int** |  | 
+**weight** | **int** | Whole number; 0 takes the URL out of a weighted rotation. | 
 
 ## Example
 

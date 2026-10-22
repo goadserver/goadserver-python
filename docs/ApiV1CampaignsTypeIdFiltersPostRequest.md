@@ -5,7 +5,7 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**filter_type** | **str** |  | 
+**filter_type** | [**FilterType**](FilterType.md) |  | 
 **filter_id** | **int** |  | 
 
 ## Example

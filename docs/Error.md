@@ -1,13 +1,17 @@
 # Error
 
+Every non-2xx response. See \"Errors\" in the API description for the code list.
 
 ## Properties
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**error** | **str** |  | 
-**message** | **str** |  | 
+**error** | **str** | Stable machine-readable code. | 
+**message** | **str** | Human-readable; do not branch on it. | 
+**errors** | **Dict[str, List[str]]** | Field → messages, on field-level validation failures. | [optional] 
 **scope** | **str** |  | [optional] 
+**unknown_fields** | **List[str]** |  | [optional] 
+**current_etag** | **str** |  | [optional] 
 
 ## Example
 

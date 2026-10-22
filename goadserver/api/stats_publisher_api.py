@@ -1,7 +1,7 @@
 """
     GoAdServer Public API
 
-    Public REST API for advertisers and publishers on the GoAdServer platform.  **Authentication.** All endpoints (except `/api/public/*`) require an API key passed as `Authorization: Bearer gas_live_…`. Create and manage keys in your account settings — each key has its own scopes, optional resource pinning, optional IP allowlist, and per-key rate limit.  **System rules apply over API rules.** The public API never lets a key bypass restrictions the same user faces in the panel:  - **Source names** (`stats_source_names` right). When the user lacks   this right, advertiser stats responses return `{id, name}` with   `name` equal to the id — no human label leaks through. - **SubID encoding** (`modules.global.subid_encoding`). When enabled   for the system, the user only ever sees encoded SubIDs in the panel.   The API mirrors this both ways: `subid_excl`/`subid_incl` filter   endpoints accept the encoded form on write (decoded server-side   before storage) and emit the encoded form on read. - **Module gating.** Endpoints whose module is disabled for the   tenant don't appear in the spec or routes.txt at all.  **Client SDKs.** Each SDK is generated from this spec and published as a public GitHub repository under the `goadserver` organization. The same tarball is also embedded in the API server and downloadable from `/api/public/sdk/<lang>.tgz` — useful when GitHub is unreachable.  > **Per-network host.** The default `https://up.go-adserver.com` > baked into the published SDKs is a reference host. Every white-label > tenant runs on its own panel domain — override the host on first use > (`setHost()` / `Configuration.host` / `basePath` etc.). Or, fetch the > spec from your own tenant (`/api/public/openapi.yaml` returns it with > *your* hostname as the default) and regenerate the SDK locally — the > regenerated client has your URL baked in.  - **PHP** — `github.com/goadserver/goadserver-php`   (namespace `GoAdServer\\Api`, composer name `goadserver/sdk`).    ```bash   composer config repositories.goadserver vcs https://github.com/goadserver/goadserver-php   composer require goadserver/sdk:dev-main   ```    ```php   $cfg = GoAdServer\\Api\\Configuration::getDefaultConfiguration()           ->setHost('https://up.go-adserver.com')           ->setAccessToken('gas_live_…');   $api = new GoAdServer\\Api\\Api\\AccountAPIApi(null, $cfg);   $me  = $api->apiV1AccountGet();   ```  - **Go** — `github.com/goadserver/goadserver-go`.    ```bash   go get github.com/goadserver/goadserver-go@latest   ```    ```go   import gas \"github.com/goadserver/goadserver-go\"    cfg := gas.NewConfiguration()   cfg.Servers = gas.ServerConfigurations{{URL: \"https://up.go-adserver.com\"}}   cli := gas.NewAPIClient(cfg)   ctx := context.WithValue(context.Background(),       gas.ContextAccessToken, \"gas_live_…\")   me, _, err := cli.AccountAPI.ApiV1AccountGet(ctx).Execute()   ```  - **Python** — `github.com/goadserver/goadserver-python` (package   `goadserver`). Pulls `pydantic` + `urllib3` automatically.    ```bash   pip install git+https://github.com/goadserver/goadserver-python.git   ```    ```python   from goadserver import ApiClient, Configuration   from goadserver.api import AccountApi, CampaignsApi    cfg = Configuration(host=\"https://up.go-adserver.com\")   cfg.access_token = \"gas_live_…\"   client = ApiClient(cfg)    me = AccountApi(client).api_v1_account_get()   camps = CampaignsApi(client).api_v1_campaigns_get(per_page=10)   ```  - **JavaScript / TypeScript** — `github.com/goadserver/goadserver-js`   (npm name `goadserver-sdk`, generator `typescript-fetch`).    ```bash   npm install github:goadserver/goadserver-js   ```    ```ts   import { Configuration, AccountApi, CampaignsApi }     from \"goadserver-sdk\";    const cfg = new Configuration({     basePath: \"https://up.go-adserver.com\",     accessToken: \"gas_live_…\",   });    const me   = await new AccountApi(cfg).apiV1AccountGet();   const list = await new CampaignsApi(cfg).apiV1CampaignsGet({ perPage: 10 });   ```    The CJS build is broadly compatible (Node + bundlers); the ESM   build is missing trailing `.js` extensions in its imports, a known   `typescript-fetch` quirk — most consumers use CJS.  **Offline / firewalled install.** If the customer's network can't reach GitHub, every SDK's source is also served as a tarball from the API host:  ```bash curl -O https://up.go-adserver.com/api/public/sdk/python.tgz tar xzf python.tgz && pip install ./python ```  Round-trip smoke tests for all four SDKs live at `clients/_smoke/` in the platform repo. 
+    Public REST API for advertisers and publishers on the GoAdServer platform.  **Authentication.** All endpoints (except `/api/public/*`) require an API key passed as `Authorization: Bearer gas_live_…`. Create and manage keys in your account settings — each key has its own scopes, optional resource pinning, optional IP allowlist, and per-key rate limit.  **Apps (OAuth 2.0).** A tool other people connect uses an app token instead: authorization code + PKCE at `/oauth/authorize`, tokens from `/api/public/oauth/token`, passed as `Authorization: Bearer oat_…` on the same endpoints with the same scopes. See the [Build an integration](/api/docs/integrations) guide.  **System rules apply over API rules.** The public API never lets a key bypass restrictions the same user faces in the panel:  - **Source names** (`stats_source_names` right). When the user lacks   this right, advertiser stats responses return `{id, name}` with   `name` equal to the id — no human label leaks through. - **SubID encoding** (`modules.global.subid_encoding`). When enabled   for the system, the user only ever sees encoded SubIDs in the panel.   The API mirrors this both ways: `subid_excl`/`subid_incl` filter   endpoints accept the encoded form on write (decoded server-side   before storage) and emit the encoded form on read. A plain SubID   sent on write is stored as sent — a value is decoded only when it is   a genuine encoded token. - **Module gating.** Endpoints whose module is disabled for the   tenant don't appear in the spec or routes.txt at all.  **Rate limits.** Every response to an API key or app token carries the caller's budget for the current one-minute window:  | Header | Meaning | |---|---| | `X-RateLimit-Limit` | Requests per minute for this key (its `rate_limit_rpm`, default 60; an app's per-installation limit for app tokens). | | `X-RateLimit-Remaining` | Calls left in the current window. | | `X-RateLimit-Reset` | Unix seconds at which the window resets. | | `Retry-After` | On `429 rate_limited` only: seconds until a retry can succeed. |  Windows are fixed and start with the first call, so `Reset` is exact. The MCP endpoint (`POST /api/v1/mcp`) is charged per `tools/call` against its own bucket (default 240/min), and its response headers report that bucket; an exhausted MCP bucket answers the tool call with an error result rather than an HTTP 429, and the HTTP response then carries `Retry-After`.  **Idempotent writes.** Send `Idempotency-Key: <1–255 printable ASCII characters>` (a UUID is ideal) on a `POST` or `PATCH` to make a retry safe. For 24 hours per key (per app installation for app tokens):  - the first request runs and its response — status, body, `Content-Type`,   `Location`, `ETag` — is stored; - the same key with the same method, path, query and body replays that   response without running anything, adding `Idempotent-Replayed: true`; - the same key with a different request is `422 idempotency_key_reused`; - the same key while the first request is still running is   `409 idempotency_key_in_progress` (with `Retry-After: 1`).  `5xx` results are not stored — the key is released and a retry runs again. Bodies over 32 MB cannot carry the header (`413`). An invalid key is `400 invalid_idempotency_key`.  **Concurrency control (ETag / If-Match).** Every JSON `GET` response (up to 1 MB) carries a weak `ETag`, a hash of the body. Send it back:  - `If-None-Match: <etag>` on a `GET` — `304 Not Modified` when unchanged; - `If-Match: <etag>` on a `PATCH`, `PUT` or `DELETE` — the server reads the   resource's current representation (the `GET` of the same path, or of the   nearest parent path that has a `GET`: `PATCH …/campaigns/ron/7/active` is   checked against `GET …/campaigns/ron/7`) and answers   `412 precondition_failed` when it no longer matches, with the current tag in   `ETag` and `current_etag`. `If-Match: *` only requires the resource to   exist. A resource with no readable representation is also `412`.  The check is optimistic, not a lock: it closes the read-modify-write window two agents (or an agent and a person in the panel) would otherwise race in. Fields that change on their own (live spend counters) change the tag too — re-read and retry. A write response carries no new ETag; `GET` again.  **Strict fields.** Unknown body fields are a client error, not something to ignore: a request that sends a field the endpoint does not accept gets `422 unknown_fields` naming it. This is the default for keys created from 2026-10-12 (the key's `strict_fields` setting, shown on the key screen); older keys keep ignoring unknown fields (except on the few endpoints that have always refused them — the budget and on/off toggles). Override per request with `?strict=1` (reject) or `?strict=0` (ignore, everywhere). App tokens default to ignoring unknown fields; `?strict=1` opts in.  **Errors.** Every non-2xx response has the same shape:  ```json { \"error\": \"validation_error\", \"message\": \"Name is required.\", \"errors\": { \"name\": [\"Name is required.\"] } } ```  `error` is a stable machine-readable code — branch on it, never on `message`. `errors` (field → messages) appears on field-level validation failures; some codes add their own members (`scope`, `accepted_scopes`, `unknown_fields`, `current_etag`). Codes:  | Status | Codes | |---|---| | 400 | `bad_request`, `invalid_idempotency_key`, `invalid_body` | | 401 | `unauthenticated`, `invalid_api_key`, `revoked_api_key`, `expired_api_key`, `invalid_token`, `revoked_token`, `expired_token`, `user_not_found`, `account_deleted`, `account_disabled`, `admin_key_on_user_api`, `user_key_on_admin_api` | | 403 | `forbidden`, `missing_scope`, `forbidden_resource`, `ip_not_allowed`, `api_disabled`, `systemid_mismatch`, `endpoint_not_api_accessible`, `oauth_token_wrong_surface`, `mcp_not_enabled_for_app` | | 404 | `not_found` (also a disabled module or missing right — see ModuleDisabled) | | 405 | `method_not_allowed` — the `Allow` header (and the message) lists the methods the path does accept | | 409 | `conflict`, `idempotency_key_in_progress`, and resource-specific conflicts (e.g. `email_exists`) | | 412 | `precondition_failed` | | 413 | `payload_too_large` | | 422 | `validation_error`, `unknown_fields`, `idempotency_key_reused` | | 429 | `rate_limited` | | 5xx | `server_error`, `service_unavailable`, `bad_gateway`, `gateway_timeout` |  Endpoint-specific codes are listed on the endpoint. A response that would otherwise lack a code gets the generic one for its status from this table.  **Client SDKs.** Each SDK is generated from this spec and published as a public GitHub repository under the `goadserver` organization. The same tarball is also embedded in the API server and downloadable from `/api/public/sdk/<lang>.tgz` — useful when GitHub is unreachable.  > **Per-network host.** The default `https://up.go-adserver.com` > baked into the published SDKs is a reference host. Every white-label > tenant runs on its own panel domain — override the host on first use > (`setHost()` / `Configuration.host` / `basePath` etc.). Or, fetch the > spec from your own tenant (`/api/public/openapi.yaml` returns it with > *your* hostname as the default) and regenerate the SDK locally — the > regenerated client has your URL baked in.  - **PHP** — `github.com/goadserver/goadserver-php`   (namespace `GoAdServer\\Api`, composer name `goadserver/sdk`).    ```bash   composer config repositories.goadserver vcs https://github.com/goadserver/goadserver-php   composer require goadserver/sdk:dev-main   ```    ```php   $cfg = GoAdServer\\Api\\Configuration::getDefaultConfiguration()           ->setHost('https://up.go-adserver.com')           ->setAccessToken('gas_live_…');   $api = new GoAdServer\\Api\\Api\\AccountAPIApi(null, $cfg);   $me  = $api->apiV1AccountGet();   ```  - **Go** — `github.com/goadserver/goadserver-go`.    ```bash   go get github.com/goadserver/goadserver-go@latest   ```    ```go   import gas \"github.com/goadserver/goadserver-go\"    cfg := gas.NewConfiguration()   cfg.Servers = gas.ServerConfigurations{{URL: \"https://up.go-adserver.com\"}}   cli := gas.NewAPIClient(cfg)   ctx := context.WithValue(context.Background(),       gas.ContextAccessToken, \"gas_live_…\")   me, _, err := cli.AccountAPI.ApiV1AccountGet(ctx).Execute()   ```  - **Python** — `github.com/goadserver/goadserver-python` (package   `goadserver`). Pulls `pydantic` + `urllib3` automatically.    ```bash   pip install git+https://github.com/goadserver/goadserver-python.git   ```    ```python   from goadserver import ApiClient, Configuration   from goadserver.api import AccountApi, CampaignsApi    cfg = Configuration(host=\"https://up.go-adserver.com\")   cfg.access_token = \"gas_live_…\"   client = ApiClient(cfg)    me = AccountApi(client).api_v1_account_get()   camps = CampaignsApi(client).api_v1_campaigns_get(per_page=10)   ```  - **JavaScript / TypeScript** — `github.com/goadserver/goadserver-js`   (npm name `goadserver-sdk`, generator `typescript-fetch`).    ```bash   npm install github:goadserver/goadserver-js   ```    ```ts   import { Configuration, AccountApi, CampaignsApi }     from \"goadserver-sdk\";    const cfg = new Configuration({     basePath: \"https://up.go-adserver.com\",     accessToken: \"gas_live_…\",   });    const me   = await new AccountApi(cfg).apiV1AccountGet();   const list = await new CampaignsApi(cfg).apiV1CampaignsGet({ perPage: 10 });   ```    The CJS build is broadly compatible (Node + bundlers); the ESM   build is missing trailing `.js` extensions in its imports, a known   `typescript-fetch` quirk — most consumers use CJS.  **Offline / firewalled install.** If the customer's network can't reach GitHub, every SDK's source is also served as a tarball from the API host:  ```bash curl -O https://up.go-adserver.com/api/public/sdk/python.tgz tar xzf python.tgz && pip install ./python ```  Round-trip smoke tests for all four SDKs live at `clients/_smoke/` in the platform repo. 
 
     The version of the OpenAPI document: 1.0.0
     Generated by OpenAPI Generator (https://openapi-generator.tech)
@@ -16,8 +16,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
 from datetime import date
-from pydantic import Field, StrictStr, field_validator
-from typing import Optional
+from pydantic import Field, StrictFloat, StrictInt, StrictStr, field_validator
+from typing import Dict, List, Optional, Union
 from typing_extensions import Annotated
 from goadserver.models.stats_response import StatsResponse
 
@@ -45,8 +45,21 @@ class StatsPublisherApi:
         var_from: Annotated[Optional[date], Field(description="ISO date — inclusive start. Defaults to 7 days ago.")] = None,
         to: Annotated[Optional[date], Field(description="ISO date — inclusive end. Defaults to today. Max range 92 days.")] = None,
         interval: Optional[StrictStr] = None,
-        group_by: Annotated[Optional[StrictStr], Field(description="Comma-separated dimensions to aggregate by, in priority order. Max 4 dimensions. Available dimensions vary per endpoint — see the per-endpoint description. ")] = None,
-        metrics: Annotated[Optional[StrictStr], Field(description="Optional comma-separated metric whitelist. When omitted, all metrics for the endpoint are returned. ")] = None,
+        viewtype: Annotated[Optional[StrictStr], Field(description="The panel's name for `interval` (\"Display By\"). Used only when `interval` is absent. ")] = None,
+        group_by: Annotated[Optional[Annotated[List[StrictStr], Field(max_length=8)]], Field(description="Dimensions to aggregate by, in priority order. Multi-pick up to 8. High-cardinality dims (`subid`, `clickid`, `sid*`, `domain`) explode row count — pair with `from`/`to`/pagination.  Each grouped dimension comes back as an `{id, name}` object, except `country`, `domain` and `subid`, which are plain strings. `ad_type` is the campaign ad type (name from the tenant's ad-type list); `ad_domain` is the ad-serving domain the impression was served from (`{id, name}` with the domain as name). On the free-text dims that do return an object (`clickid`, `sid1`–`sid5`) the `id` is always 0 and `name` carries the value. ")] = None,
+        metrics: Annotated[Optional[List[StrictStr]], Field(description="Metrics to return. Multi-pick — leave empty for all. Unknown names are ignored. `bot_views` / `bot_clicks` (views / clicks the ad server flagged as bot traffic, a subset of `views` / `clicks`) only where Bot Info is enabled, `costs` and `cost_per_conv_a` … `cost_per_conv_e` only on admanager tenants — see above. ")] = None,
+        filter_website: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Site ID — look up via `GET /api/v1/sites`.")] = None,
+        filter_adzone_id: Annotated[Optional[StrictStr], Field(description="Adspace ID, or comma-separated list. Look up via `GET /api/v1/adspaces`.")] = None,
+        filter_country: Annotated[Optional[Annotated[str, Field(min_length=2, strict=True, max_length=2)]], Field(description="ISO-3166 alpha-2 country code (e.g. `US`, `DE`, `BR`).")] = None,
+        filter_device: Annotated[Optional[StrictInt], Field(description="Device type:  | ID | Device | |----|--------| | 1  | Computer | | 2  | Tablet | | 3  | Phone | | 4  | Console | | 5  | Wearable | | 6  | TV | ")] = None,
+        filter_ad_type: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Ad-type ID. Available types are tenant-specific (banner, popunder, native, video, push, …); the dropdown shows the types active on your system. ")] = None,
+        filter_selling_type: Annotated[Optional[StrictInt], Field(description="Campaign selling type:  | ID | Selling type | |----|--------------| | 1  | RON (CPC) | | 2  | Flatrate | | 3  | CPM | | 4  | RTB | | 5  | SmartZone | ")] = None,
+        filter_tag_id: Annotated[Optional[StrictStr], Field(description="Tag ID, or comma-separated list. Resolves to the bound adzones.")] = None,
+        filter_adzone_type: Annotated[Optional[StrictStr], Field(description="Adzone type id(s), comma-separated (the `id` of `GET /api/v1/lookups/adspace-types`). ")] = None,
+        filter_ad_domain: Annotated[Optional[StrictStr], Field(description="Ad-serving domain id(s), comma-separated — the `id` returned for `group_by=ad_domain`. ")] = None,
+        filter_bots: Annotated[Optional[StrictInt], Field(description="`1` = only traffic flagged as bots, `2` = exclude it. Ignored unless Bot Info is enabled for the account (see above). ")] = None,
+        min: Annotated[Optional[Dict[str, Dict[str, Union[StrictFloat, StrictInt]]]], Field(description="Keep only rows whose metric is at least this value, as `min[<metric>]=<number>` — e.g. `min[cost_per_conv_a]=10`. Pair with `max[<metric>]` for a range (both ends inclusive). Any metric `metrics` accepts for this caller can be bounded, whether or not it is returned; several metrics combine with AND. A row with no value for the metric is dropped. Money in main currency units, `ctr` in percent. Same as the comparisons (`>10`, `<200`, `10-200`) in the panel's statistics details column search.  With a bound set, up to 10,000 grouped rows (in `sort` order) are tested and the survivors paginated; `total_rows` counts the survivors, `totals` stay over the whole selection, and `range_scan_truncated: true` says more rows existed than were tested. Unknown metric, non-number or min > max → 422. ")] = None,
+        max: Annotated[Optional[Dict[str, Dict[str, Union[StrictFloat, StrictInt]]]], Field(description="Keep only rows whose metric is at most this value, as `max[<metric>]=<number>`. See `min`.")] = None,
         format: Optional[StrictStr] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         per_page: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = None,
@@ -66,7 +79,7 @@ class StatsPublisherApi:
     ) -> StatsResponse:
         """Publisher earnings (sites / adzones).
 
-        **group_by:** `adzone`, `website`, `country`, `os`, `browser`, `device`, `domain`, `subid`, `tag`.  **Filters:** `ad_type`, `website`, `adzone_id`, `selling_type`, `device`, `country`, `tag_id`.  **Metrics:** `views`, `clicks`, `ctr`, `ecpm`, `earned`, `un_views`, `no_ads`, `bot_views`, `bot_clicks`, `conv_a`, `conv_b`, `conv_c`. 
+        Aggregated publisher earnings. Pick the dimensions to group by, the metrics you want returned, and any filters — the form below auto-builds the query.  **Money:** `earned` and `ecpm` are in the account currency (currency units, not cents), like the panel.  **Bot counters:** `bot_views` / `bot_clicks` and `filter[bots]` are available where the panel shows its Bot Info columns — admanager tenants, or accounts holding the `display_botinfo` right. Elsewhere the two metrics are not returned even when asked for, and `filter[bots]` is ignored.  **Conversion slots:** `conv_a` / `conv_b` / `conv_c` / `conv_d` / `conv_e` are conversion types 0 / 1 / 2 / 3 / 4. On admanager tenants they are your own slots, named on `GET /api/v1/tracking/conversion-types` (ids 0-4); the panel and its CSV exports head the columns with those names there. On an adnetwork they stay neutral letters.  **Costs and cost per conversion:** on admanager tenants (where the panel shows its Costs / CPA columns) `costs` is your traffic cost in the account currency and `cost_per_conv_a` … `cost_per_conv_e` is `costs` divided by that slot's conversions (0 when the slot has none), rounded to 4 decimals, on every row and in `totals`. Pick the slot that is your acquisition: e.g. a cost per lead is `cost_per_conv_a` when slot 0 is your \"Sign up / lead\" type, a cost per join `cost_per_conv_e` when slot 4 is \"Joins\". The panel's `cpa` column is `cost_per_conv_a`. Elsewhere these metrics are not returned even when asked for. All six also sort (`sort=-cost_per_conv_e`). 
 
         :param var_from: ISO date — inclusive start. Defaults to 7 days ago.
         :type var_from: date
@@ -74,10 +87,36 @@ class StatsPublisherApi:
         :type to: date
         :param interval:
         :type interval: str
-        :param group_by: Comma-separated dimensions to aggregate by, in priority order. Max 4 dimensions. Available dimensions vary per endpoint — see the per-endpoint description. 
-        :type group_by: str
-        :param metrics: Optional comma-separated metric whitelist. When omitted, all metrics for the endpoint are returned. 
-        :type metrics: str
+        :param viewtype: The panel's name for `interval` (\"Display By\"). Used only when `interval` is absent. 
+        :type viewtype: str
+        :param group_by: Dimensions to aggregate by, in priority order. Multi-pick up to 8. High-cardinality dims (`subid`, `clickid`, `sid*`, `domain`) explode row count — pair with `from`/`to`/pagination.  Each grouped dimension comes back as an `{id, name}` object, except `country`, `domain` and `subid`, which are plain strings. `ad_type` is the campaign ad type (name from the tenant's ad-type list); `ad_domain` is the ad-serving domain the impression was served from (`{id, name}` with the domain as name). On the free-text dims that do return an object (`clickid`, `sid1`–`sid5`) the `id` is always 0 and `name` carries the value. 
+        :type group_by: List[str]
+        :param metrics: Metrics to return. Multi-pick — leave empty for all. Unknown names are ignored. `bot_views` / `bot_clicks` (views / clicks the ad server flagged as bot traffic, a subset of `views` / `clicks`) only where Bot Info is enabled, `costs` and `cost_per_conv_a` … `cost_per_conv_e` only on admanager tenants — see above. 
+        :type metrics: List[str]
+        :param filter_website: Site ID — look up via `GET /api/v1/sites`.
+        :type filter_website: int
+        :param filter_adzone_id: Adspace ID, or comma-separated list. Look up via `GET /api/v1/adspaces`.
+        :type filter_adzone_id: str
+        :param filter_country: ISO-3166 alpha-2 country code (e.g. `US`, `DE`, `BR`).
+        :type filter_country: str
+        :param filter_device: Device type:  | ID | Device | |----|--------| | 1  | Computer | | 2  | Tablet | | 3  | Phone | | 4  | Console | | 5  | Wearable | | 6  | TV | 
+        :type filter_device: int
+        :param filter_ad_type: Ad-type ID. Available types are tenant-specific (banner, popunder, native, video, push, …); the dropdown shows the types active on your system. 
+        :type filter_ad_type: int
+        :param filter_selling_type: Campaign selling type:  | ID | Selling type | |----|--------------| | 1  | RON (CPC) | | 2  | Flatrate | | 3  | CPM | | 4  | RTB | | 5  | SmartZone | 
+        :type filter_selling_type: int
+        :param filter_tag_id: Tag ID, or comma-separated list. Resolves to the bound adzones.
+        :type filter_tag_id: str
+        :param filter_adzone_type: Adzone type id(s), comma-separated (the `id` of `GET /api/v1/lookups/adspace-types`). 
+        :type filter_adzone_type: str
+        :param filter_ad_domain: Ad-serving domain id(s), comma-separated — the `id` returned for `group_by=ad_domain`. 
+        :type filter_ad_domain: str
+        :param filter_bots: `1` = only traffic flagged as bots, `2` = exclude it. Ignored unless Bot Info is enabled for the account (see above). 
+        :type filter_bots: int
+        :param min: Keep only rows whose metric is at least this value, as `min[<metric>]=<number>` — e.g. `min[cost_per_conv_a]=10`. Pair with `max[<metric>]` for a range (both ends inclusive). Any metric `metrics` accepts for this caller can be bounded, whether or not it is returned; several metrics combine with AND. A row with no value for the metric is dropped. Money in main currency units, `ctr` in percent. Same as the comparisons (`>10`, `<200`, `10-200`) in the panel's statistics details column search.  With a bound set, up to 10,000 grouped rows (in `sort` order) are tested and the survivors paginated; `total_rows` counts the survivors, `totals` stay over the whole selection, and `range_scan_truncated: true` says more rows existed than were tested. Unknown metric, non-number or min > max → 422. 
+        :type min: Dict[str, float]
+        :param max: Keep only rows whose metric is at most this value, as `max[<metric>]=<number>`. See `min`.
+        :type max: Dict[str, float]
         :param format:
         :type format: str
         :param page:
@@ -112,8 +151,21 @@ class StatsPublisherApi:
             var_from=var_from,
             to=to,
             interval=interval,
+            viewtype=viewtype,
             group_by=group_by,
             metrics=metrics,
+            filter_website=filter_website,
+            filter_adzone_id=filter_adzone_id,
+            filter_country=filter_country,
+            filter_device=filter_device,
+            filter_ad_type=filter_ad_type,
+            filter_selling_type=filter_selling_type,
+            filter_tag_id=filter_tag_id,
+            filter_adzone_type=filter_adzone_type,
+            filter_ad_domain=filter_ad_domain,
+            filter_bots=filter_bots,
+            min=min,
+            max=max,
             format=format,
             page=page,
             per_page=per_page,
@@ -144,8 +196,21 @@ class StatsPublisherApi:
         var_from: Annotated[Optional[date], Field(description="ISO date — inclusive start. Defaults to 7 days ago.")] = None,
         to: Annotated[Optional[date], Field(description="ISO date — inclusive end. Defaults to today. Max range 92 days.")] = None,
         interval: Optional[StrictStr] = None,
-        group_by: Annotated[Optional[StrictStr], Field(description="Comma-separated dimensions to aggregate by, in priority order. Max 4 dimensions. Available dimensions vary per endpoint — see the per-endpoint description. ")] = None,
-        metrics: Annotated[Optional[StrictStr], Field(description="Optional comma-separated metric whitelist. When omitted, all metrics for the endpoint are returned. ")] = None,
+        viewtype: Annotated[Optional[StrictStr], Field(description="The panel's name for `interval` (\"Display By\"). Used only when `interval` is absent. ")] = None,
+        group_by: Annotated[Optional[Annotated[List[StrictStr], Field(max_length=8)]], Field(description="Dimensions to aggregate by, in priority order. Multi-pick up to 8. High-cardinality dims (`subid`, `clickid`, `sid*`, `domain`) explode row count — pair with `from`/`to`/pagination.  Each grouped dimension comes back as an `{id, name}` object, except `country`, `domain` and `subid`, which are plain strings. `ad_type` is the campaign ad type (name from the tenant's ad-type list); `ad_domain` is the ad-serving domain the impression was served from (`{id, name}` with the domain as name). On the free-text dims that do return an object (`clickid`, `sid1`–`sid5`) the `id` is always 0 and `name` carries the value. ")] = None,
+        metrics: Annotated[Optional[List[StrictStr]], Field(description="Metrics to return. Multi-pick — leave empty for all. Unknown names are ignored. `bot_views` / `bot_clicks` (views / clicks the ad server flagged as bot traffic, a subset of `views` / `clicks`) only where Bot Info is enabled, `costs` and `cost_per_conv_a` … `cost_per_conv_e` only on admanager tenants — see above. ")] = None,
+        filter_website: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Site ID — look up via `GET /api/v1/sites`.")] = None,
+        filter_adzone_id: Annotated[Optional[StrictStr], Field(description="Adspace ID, or comma-separated list. Look up via `GET /api/v1/adspaces`.")] = None,
+        filter_country: Annotated[Optional[Annotated[str, Field(min_length=2, strict=True, max_length=2)]], Field(description="ISO-3166 alpha-2 country code (e.g. `US`, `DE`, `BR`).")] = None,
+        filter_device: Annotated[Optional[StrictInt], Field(description="Device type:  | ID | Device | |----|--------| | 1  | Computer | | 2  | Tablet | | 3  | Phone | | 4  | Console | | 5  | Wearable | | 6  | TV | ")] = None,
+        filter_ad_type: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Ad-type ID. Available types are tenant-specific (banner, popunder, native, video, push, …); the dropdown shows the types active on your system. ")] = None,
+        filter_selling_type: Annotated[Optional[StrictInt], Field(description="Campaign selling type:  | ID | Selling type | |----|--------------| | 1  | RON (CPC) | | 2  | Flatrate | | 3  | CPM | | 4  | RTB | | 5  | SmartZone | ")] = None,
+        filter_tag_id: Annotated[Optional[StrictStr], Field(description="Tag ID, or comma-separated list. Resolves to the bound adzones.")] = None,
+        filter_adzone_type: Annotated[Optional[StrictStr], Field(description="Adzone type id(s), comma-separated (the `id` of `GET /api/v1/lookups/adspace-types`). ")] = None,
+        filter_ad_domain: Annotated[Optional[StrictStr], Field(description="Ad-serving domain id(s), comma-separated — the `id` returned for `group_by=ad_domain`. ")] = None,
+        filter_bots: Annotated[Optional[StrictInt], Field(description="`1` = only traffic flagged as bots, `2` = exclude it. Ignored unless Bot Info is enabled for the account (see above). ")] = None,
+        min: Annotated[Optional[Dict[str, Dict[str, Union[StrictFloat, StrictInt]]]], Field(description="Keep only rows whose metric is at least this value, as `min[<metric>]=<number>` — e.g. `min[cost_per_conv_a]=10`. Pair with `max[<metric>]` for a range (both ends inclusive). Any metric `metrics` accepts for this caller can be bounded, whether or not it is returned; several metrics combine with AND. A row with no value for the metric is dropped. Money in main currency units, `ctr` in percent. Same as the comparisons (`>10`, `<200`, `10-200`) in the panel's statistics details column search.  With a bound set, up to 10,000 grouped rows (in `sort` order) are tested and the survivors paginated; `total_rows` counts the survivors, `totals` stay over the whole selection, and `range_scan_truncated: true` says more rows existed than were tested. Unknown metric, non-number or min > max → 422. ")] = None,
+        max: Annotated[Optional[Dict[str, Dict[str, Union[StrictFloat, StrictInt]]]], Field(description="Keep only rows whose metric is at most this value, as `max[<metric>]=<number>`. See `min`.")] = None,
         format: Optional[StrictStr] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         per_page: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = None,
@@ -165,7 +230,7 @@ class StatsPublisherApi:
     ) -> ApiResponse[StatsResponse]:
         """Publisher earnings (sites / adzones).
 
-        **group_by:** `adzone`, `website`, `country`, `os`, `browser`, `device`, `domain`, `subid`, `tag`.  **Filters:** `ad_type`, `website`, `adzone_id`, `selling_type`, `device`, `country`, `tag_id`.  **Metrics:** `views`, `clicks`, `ctr`, `ecpm`, `earned`, `un_views`, `no_ads`, `bot_views`, `bot_clicks`, `conv_a`, `conv_b`, `conv_c`. 
+        Aggregated publisher earnings. Pick the dimensions to group by, the metrics you want returned, and any filters — the form below auto-builds the query.  **Money:** `earned` and `ecpm` are in the account currency (currency units, not cents), like the panel.  **Bot counters:** `bot_views` / `bot_clicks` and `filter[bots]` are available where the panel shows its Bot Info columns — admanager tenants, or accounts holding the `display_botinfo` right. Elsewhere the two metrics are not returned even when asked for, and `filter[bots]` is ignored.  **Conversion slots:** `conv_a` / `conv_b` / `conv_c` / `conv_d` / `conv_e` are conversion types 0 / 1 / 2 / 3 / 4. On admanager tenants they are your own slots, named on `GET /api/v1/tracking/conversion-types` (ids 0-4); the panel and its CSV exports head the columns with those names there. On an adnetwork they stay neutral letters.  **Costs and cost per conversion:** on admanager tenants (where the panel shows its Costs / CPA columns) `costs` is your traffic cost in the account currency and `cost_per_conv_a` … `cost_per_conv_e` is `costs` divided by that slot's conversions (0 when the slot has none), rounded to 4 decimals, on every row and in `totals`. Pick the slot that is your acquisition: e.g. a cost per lead is `cost_per_conv_a` when slot 0 is your \"Sign up / lead\" type, a cost per join `cost_per_conv_e` when slot 4 is \"Joins\". The panel's `cpa` column is `cost_per_conv_a`. Elsewhere these metrics are not returned even when asked for. All six also sort (`sort=-cost_per_conv_e`). 
 
         :param var_from: ISO date — inclusive start. Defaults to 7 days ago.
         :type var_from: date
@@ -173,10 +238,36 @@ class StatsPublisherApi:
         :type to: date
         :param interval:
         :type interval: str
-        :param group_by: Comma-separated dimensions to aggregate by, in priority order. Max 4 dimensions. Available dimensions vary per endpoint — see the per-endpoint description. 
-        :type group_by: str
-        :param metrics: Optional comma-separated metric whitelist. When omitted, all metrics for the endpoint are returned. 
-        :type metrics: str
+        :param viewtype: The panel's name for `interval` (\"Display By\"). Used only when `interval` is absent. 
+        :type viewtype: str
+        :param group_by: Dimensions to aggregate by, in priority order. Multi-pick up to 8. High-cardinality dims (`subid`, `clickid`, `sid*`, `domain`) explode row count — pair with `from`/`to`/pagination.  Each grouped dimension comes back as an `{id, name}` object, except `country`, `domain` and `subid`, which are plain strings. `ad_type` is the campaign ad type (name from the tenant's ad-type list); `ad_domain` is the ad-serving domain the impression was served from (`{id, name}` with the domain as name). On the free-text dims that do return an object (`clickid`, `sid1`–`sid5`) the `id` is always 0 and `name` carries the value. 
+        :type group_by: List[str]
+        :param metrics: Metrics to return. Multi-pick — leave empty for all. Unknown names are ignored. `bot_views` / `bot_clicks` (views / clicks the ad server flagged as bot traffic, a subset of `views` / `clicks`) only where Bot Info is enabled, `costs` and `cost_per_conv_a` … `cost_per_conv_e` only on admanager tenants — see above. 
+        :type metrics: List[str]
+        :param filter_website: Site ID — look up via `GET /api/v1/sites`.
+        :type filter_website: int
+        :param filter_adzone_id: Adspace ID, or comma-separated list. Look up via `GET /api/v1/adspaces`.
+        :type filter_adzone_id: str
+        :param filter_country: ISO-3166 alpha-2 country code (e.g. `US`, `DE`, `BR`).
+        :type filter_country: str
+        :param filter_device: Device type:  | ID | Device | |----|--------| | 1  | Computer | | 2  | Tablet | | 3  | Phone | | 4  | Console | | 5  | Wearable | | 6  | TV | 
+        :type filter_device: int
+        :param filter_ad_type: Ad-type ID. Available types are tenant-specific (banner, popunder, native, video, push, …); the dropdown shows the types active on your system. 
+        :type filter_ad_type: int
+        :param filter_selling_type: Campaign selling type:  | ID | Selling type | |----|--------------| | 1  | RON (CPC) | | 2  | Flatrate | | 3  | CPM | | 4  | RTB | | 5  | SmartZone | 
+        :type filter_selling_type: int
+        :param filter_tag_id: Tag ID, or comma-separated list. Resolves to the bound adzones.
+        :type filter_tag_id: str
+        :param filter_adzone_type: Adzone type id(s), comma-separated (the `id` of `GET /api/v1/lookups/adspace-types`). 
+        :type filter_adzone_type: str
+        :param filter_ad_domain: Ad-serving domain id(s), comma-separated — the `id` returned for `group_by=ad_domain`. 
+        :type filter_ad_domain: str
+        :param filter_bots: `1` = only traffic flagged as bots, `2` = exclude it. Ignored unless Bot Info is enabled for the account (see above). 
+        :type filter_bots: int
+        :param min: Keep only rows whose metric is at least this value, as `min[<metric>]=<number>` — e.g. `min[cost_per_conv_a]=10`. Pair with `max[<metric>]` for a range (both ends inclusive). Any metric `metrics` accepts for this caller can be bounded, whether or not it is returned; several metrics combine with AND. A row with no value for the metric is dropped. Money in main currency units, `ctr` in percent. Same as the comparisons (`>10`, `<200`, `10-200`) in the panel's statistics details column search.  With a bound set, up to 10,000 grouped rows (in `sort` order) are tested and the survivors paginated; `total_rows` counts the survivors, `totals` stay over the whole selection, and `range_scan_truncated: true` says more rows existed than were tested. Unknown metric, non-number or min > max → 422. 
+        :type min: Dict[str, float]
+        :param max: Keep only rows whose metric is at most this value, as `max[<metric>]=<number>`. See `min`.
+        :type max: Dict[str, float]
         :param format:
         :type format: str
         :param page:
@@ -211,8 +302,21 @@ class StatsPublisherApi:
             var_from=var_from,
             to=to,
             interval=interval,
+            viewtype=viewtype,
             group_by=group_by,
             metrics=metrics,
+            filter_website=filter_website,
+            filter_adzone_id=filter_adzone_id,
+            filter_country=filter_country,
+            filter_device=filter_device,
+            filter_ad_type=filter_ad_type,
+            filter_selling_type=filter_selling_type,
+            filter_tag_id=filter_tag_id,
+            filter_adzone_type=filter_adzone_type,
+            filter_ad_domain=filter_ad_domain,
+            filter_bots=filter_bots,
+            min=min,
+            max=max,
             format=format,
             page=page,
             per_page=per_page,
@@ -243,8 +347,21 @@ class StatsPublisherApi:
         var_from: Annotated[Optional[date], Field(description="ISO date — inclusive start. Defaults to 7 days ago.")] = None,
         to: Annotated[Optional[date], Field(description="ISO date — inclusive end. Defaults to today. Max range 92 days.")] = None,
         interval: Optional[StrictStr] = None,
-        group_by: Annotated[Optional[StrictStr], Field(description="Comma-separated dimensions to aggregate by, in priority order. Max 4 dimensions. Available dimensions vary per endpoint — see the per-endpoint description. ")] = None,
-        metrics: Annotated[Optional[StrictStr], Field(description="Optional comma-separated metric whitelist. When omitted, all metrics for the endpoint are returned. ")] = None,
+        viewtype: Annotated[Optional[StrictStr], Field(description="The panel's name for `interval` (\"Display By\"). Used only when `interval` is absent. ")] = None,
+        group_by: Annotated[Optional[Annotated[List[StrictStr], Field(max_length=8)]], Field(description="Dimensions to aggregate by, in priority order. Multi-pick up to 8. High-cardinality dims (`subid`, `clickid`, `sid*`, `domain`) explode row count — pair with `from`/`to`/pagination.  Each grouped dimension comes back as an `{id, name}` object, except `country`, `domain` and `subid`, which are plain strings. `ad_type` is the campaign ad type (name from the tenant's ad-type list); `ad_domain` is the ad-serving domain the impression was served from (`{id, name}` with the domain as name). On the free-text dims that do return an object (`clickid`, `sid1`–`sid5`) the `id` is always 0 and `name` carries the value. ")] = None,
+        metrics: Annotated[Optional[List[StrictStr]], Field(description="Metrics to return. Multi-pick — leave empty for all. Unknown names are ignored. `bot_views` / `bot_clicks` (views / clicks the ad server flagged as bot traffic, a subset of `views` / `clicks`) only where Bot Info is enabled, `costs` and `cost_per_conv_a` … `cost_per_conv_e` only on admanager tenants — see above. ")] = None,
+        filter_website: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Site ID — look up via `GET /api/v1/sites`.")] = None,
+        filter_adzone_id: Annotated[Optional[StrictStr], Field(description="Adspace ID, or comma-separated list. Look up via `GET /api/v1/adspaces`.")] = None,
+        filter_country: Annotated[Optional[Annotated[str, Field(min_length=2, strict=True, max_length=2)]], Field(description="ISO-3166 alpha-2 country code (e.g. `US`, `DE`, `BR`).")] = None,
+        filter_device: Annotated[Optional[StrictInt], Field(description="Device type:  | ID | Device | |----|--------| | 1  | Computer | | 2  | Tablet | | 3  | Phone | | 4  | Console | | 5  | Wearable | | 6  | TV | ")] = None,
+        filter_ad_type: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Ad-type ID. Available types are tenant-specific (banner, popunder, native, video, push, …); the dropdown shows the types active on your system. ")] = None,
+        filter_selling_type: Annotated[Optional[StrictInt], Field(description="Campaign selling type:  | ID | Selling type | |----|--------------| | 1  | RON (CPC) | | 2  | Flatrate | | 3  | CPM | | 4  | RTB | | 5  | SmartZone | ")] = None,
+        filter_tag_id: Annotated[Optional[StrictStr], Field(description="Tag ID, or comma-separated list. Resolves to the bound adzones.")] = None,
+        filter_adzone_type: Annotated[Optional[StrictStr], Field(description="Adzone type id(s), comma-separated (the `id` of `GET /api/v1/lookups/adspace-types`). ")] = None,
+        filter_ad_domain: Annotated[Optional[StrictStr], Field(description="Ad-serving domain id(s), comma-separated — the `id` returned for `group_by=ad_domain`. ")] = None,
+        filter_bots: Annotated[Optional[StrictInt], Field(description="`1` = only traffic flagged as bots, `2` = exclude it. Ignored unless Bot Info is enabled for the account (see above). ")] = None,
+        min: Annotated[Optional[Dict[str, Dict[str, Union[StrictFloat, StrictInt]]]], Field(description="Keep only rows whose metric is at least this value, as `min[<metric>]=<number>` — e.g. `min[cost_per_conv_a]=10`. Pair with `max[<metric>]` for a range (both ends inclusive). Any metric `metrics` accepts for this caller can be bounded, whether or not it is returned; several metrics combine with AND. A row with no value for the metric is dropped. Money in main currency units, `ctr` in percent. Same as the comparisons (`>10`, `<200`, `10-200`) in the panel's statistics details column search.  With a bound set, up to 10,000 grouped rows (in `sort` order) are tested and the survivors paginated; `total_rows` counts the survivors, `totals` stay over the whole selection, and `range_scan_truncated: true` says more rows existed than were tested. Unknown metric, non-number or min > max → 422. ")] = None,
+        max: Annotated[Optional[Dict[str, Dict[str, Union[StrictFloat, StrictInt]]]], Field(description="Keep only rows whose metric is at most this value, as `max[<metric>]=<number>`. See `min`.")] = None,
         format: Optional[StrictStr] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         per_page: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = None,
@@ -264,7 +381,7 @@ class StatsPublisherApi:
     ) -> RESTResponseType:
         """Publisher earnings (sites / adzones).
 
-        **group_by:** `adzone`, `website`, `country`, `os`, `browser`, `device`, `domain`, `subid`, `tag`.  **Filters:** `ad_type`, `website`, `adzone_id`, `selling_type`, `device`, `country`, `tag_id`.  **Metrics:** `views`, `clicks`, `ctr`, `ecpm`, `earned`, `un_views`, `no_ads`, `bot_views`, `bot_clicks`, `conv_a`, `conv_b`, `conv_c`. 
+        Aggregated publisher earnings. Pick the dimensions to group by, the metrics you want returned, and any filters — the form below auto-builds the query.  **Money:** `earned` and `ecpm` are in the account currency (currency units, not cents), like the panel.  **Bot counters:** `bot_views` / `bot_clicks` and `filter[bots]` are available where the panel shows its Bot Info columns — admanager tenants, or accounts holding the `display_botinfo` right. Elsewhere the two metrics are not returned even when asked for, and `filter[bots]` is ignored.  **Conversion slots:** `conv_a` / `conv_b` / `conv_c` / `conv_d` / `conv_e` are conversion types 0 / 1 / 2 / 3 / 4. On admanager tenants they are your own slots, named on `GET /api/v1/tracking/conversion-types` (ids 0-4); the panel and its CSV exports head the columns with those names there. On an adnetwork they stay neutral letters.  **Costs and cost per conversion:** on admanager tenants (where the panel shows its Costs / CPA columns) `costs` is your traffic cost in the account currency and `cost_per_conv_a` … `cost_per_conv_e` is `costs` divided by that slot's conversions (0 when the slot has none), rounded to 4 decimals, on every row and in `totals`. Pick the slot that is your acquisition: e.g. a cost per lead is `cost_per_conv_a` when slot 0 is your \"Sign up / lead\" type, a cost per join `cost_per_conv_e` when slot 4 is \"Joins\". The panel's `cpa` column is `cost_per_conv_a`. Elsewhere these metrics are not returned even when asked for. All six also sort (`sort=-cost_per_conv_e`). 
 
         :param var_from: ISO date — inclusive start. Defaults to 7 days ago.
         :type var_from: date
@@ -272,10 +389,36 @@ class StatsPublisherApi:
         :type to: date
         :param interval:
         :type interval: str
-        :param group_by: Comma-separated dimensions to aggregate by, in priority order. Max 4 dimensions. Available dimensions vary per endpoint — see the per-endpoint description. 
-        :type group_by: str
-        :param metrics: Optional comma-separated metric whitelist. When omitted, all metrics for the endpoint are returned. 
-        :type metrics: str
+        :param viewtype: The panel's name for `interval` (\"Display By\"). Used only when `interval` is absent. 
+        :type viewtype: str
+        :param group_by: Dimensions to aggregate by, in priority order. Multi-pick up to 8. High-cardinality dims (`subid`, `clickid`, `sid*`, `domain`) explode row count — pair with `from`/`to`/pagination.  Each grouped dimension comes back as an `{id, name}` object, except `country`, `domain` and `subid`, which are plain strings. `ad_type` is the campaign ad type (name from the tenant's ad-type list); `ad_domain` is the ad-serving domain the impression was served from (`{id, name}` with the domain as name). On the free-text dims that do return an object (`clickid`, `sid1`–`sid5`) the `id` is always 0 and `name` carries the value. 
+        :type group_by: List[str]
+        :param metrics: Metrics to return. Multi-pick — leave empty for all. Unknown names are ignored. `bot_views` / `bot_clicks` (views / clicks the ad server flagged as bot traffic, a subset of `views` / `clicks`) only where Bot Info is enabled, `costs` and `cost_per_conv_a` … `cost_per_conv_e` only on admanager tenants — see above. 
+        :type metrics: List[str]
+        :param filter_website: Site ID — look up via `GET /api/v1/sites`.
+        :type filter_website: int
+        :param filter_adzone_id: Adspace ID, or comma-separated list. Look up via `GET /api/v1/adspaces`.
+        :type filter_adzone_id: str
+        :param filter_country: ISO-3166 alpha-2 country code (e.g. `US`, `DE`, `BR`).
+        :type filter_country: str
+        :param filter_device: Device type:  | ID | Device | |----|--------| | 1  | Computer | | 2  | Tablet | | 3  | Phone | | 4  | Console | | 5  | Wearable | | 6  | TV | 
+        :type filter_device: int
+        :param filter_ad_type: Ad-type ID. Available types are tenant-specific (banner, popunder, native, video, push, …); the dropdown shows the types active on your system. 
+        :type filter_ad_type: int
+        :param filter_selling_type: Campaign selling type:  | ID | Selling type | |----|--------------| | 1  | RON (CPC) | | 2  | Flatrate | | 3  | CPM | | 4  | RTB | | 5  | SmartZone | 
+        :type filter_selling_type: int
+        :param filter_tag_id: Tag ID, or comma-separated list. Resolves to the bound adzones.
+        :type filter_tag_id: str
+        :param filter_adzone_type: Adzone type id(s), comma-separated (the `id` of `GET /api/v1/lookups/adspace-types`). 
+        :type filter_adzone_type: str
+        :param filter_ad_domain: Ad-serving domain id(s), comma-separated — the `id` returned for `group_by=ad_domain`. 
+        :type filter_ad_domain: str
+        :param filter_bots: `1` = only traffic flagged as bots, `2` = exclude it. Ignored unless Bot Info is enabled for the account (see above). 
+        :type filter_bots: int
+        :param min: Keep only rows whose metric is at least this value, as `min[<metric>]=<number>` — e.g. `min[cost_per_conv_a]=10`. Pair with `max[<metric>]` for a range (both ends inclusive). Any metric `metrics` accepts for this caller can be bounded, whether or not it is returned; several metrics combine with AND. A row with no value for the metric is dropped. Money in main currency units, `ctr` in percent. Same as the comparisons (`>10`, `<200`, `10-200`) in the panel's statistics details column search.  With a bound set, up to 10,000 grouped rows (in `sort` order) are tested and the survivors paginated; `total_rows` counts the survivors, `totals` stay over the whole selection, and `range_scan_truncated: true` says more rows existed than were tested. Unknown metric, non-number or min > max → 422. 
+        :type min: Dict[str, float]
+        :param max: Keep only rows whose metric is at most this value, as `max[<metric>]=<number>`. See `min`.
+        :type max: Dict[str, float]
         :param format:
         :type format: str
         :param page:
@@ -310,8 +453,21 @@ class StatsPublisherApi:
             var_from=var_from,
             to=to,
             interval=interval,
+            viewtype=viewtype,
             group_by=group_by,
             metrics=metrics,
+            filter_website=filter_website,
+            filter_adzone_id=filter_adzone_id,
+            filter_country=filter_country,
+            filter_device=filter_device,
+            filter_ad_type=filter_ad_type,
+            filter_selling_type=filter_selling_type,
+            filter_tag_id=filter_tag_id,
+            filter_adzone_type=filter_adzone_type,
+            filter_ad_domain=filter_ad_domain,
+            filter_bots=filter_bots,
+            min=min,
+            max=max,
             format=format,
             page=page,
             per_page=per_page,
@@ -337,8 +493,21 @@ class StatsPublisherApi:
         var_from,
         to,
         interval,
+        viewtype,
         group_by,
         metrics,
+        filter_website,
+        filter_adzone_id,
+        filter_country,
+        filter_device,
+        filter_ad_type,
+        filter_selling_type,
+        filter_tag_id,
+        filter_adzone_type,
+        filter_ad_domain,
+        filter_bots,
+        min,
+        max,
         format,
         page,
         per_page,
@@ -352,6 +521,8 @@ class StatsPublisherApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'group_by': 'csv',
+            'metrics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -395,6 +566,10 @@ class StatsPublisherApi:
             
             _query_params.append(('interval', interval))
             
+        if viewtype is not None:
+            
+            _query_params.append(('viewtype', viewtype))
+            
         if group_by is not None:
             
             _query_params.append(('group_by', group_by))
@@ -402,6 +577,54 @@ class StatsPublisherApi:
         if metrics is not None:
             
             _query_params.append(('metrics', metrics))
+            
+        if filter_website is not None:
+            
+            _query_params.append(('filter[website]', filter_website))
+            
+        if filter_adzone_id is not None:
+            
+            _query_params.append(('filter[adzone_id]', filter_adzone_id))
+            
+        if filter_country is not None:
+            
+            _query_params.append(('filter[country]', filter_country))
+            
+        if filter_device is not None:
+            
+            _query_params.append(('filter[device]', filter_device))
+            
+        if filter_ad_type is not None:
+            
+            _query_params.append(('filter[ad_type]', filter_ad_type))
+            
+        if filter_selling_type is not None:
+            
+            _query_params.append(('filter[selling_type]', filter_selling_type))
+            
+        if filter_tag_id is not None:
+            
+            _query_params.append(('filter[tag_id]', filter_tag_id))
+            
+        if filter_adzone_type is not None:
+            
+            _query_params.append(('filter[adzone_type]', filter_adzone_type))
+            
+        if filter_ad_domain is not None:
+            
+            _query_params.append(('filter[ad_domain]', filter_ad_domain))
+            
+        if filter_bots is not None:
+            
+            _query_params.append(('filter[bots]', filter_bots))
+            
+        if min is not None:
+            
+            _query_params.append(('min', min))
+            
+        if max is not None:
+            
+            _query_params.append(('max', max))
             
         if format is not None:
             
